@@ -4,12 +4,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import AIBot from './AIBot';
 import MiniGameModal from './MiniGameModal';
+import EmailClient from './EmailClient';
 
 const MangaBook: React.FC = () => {
   const [currentSpread, setCurrentSpread] = useState(1);
   const [isZoomed, setIsZoomed] = useState(false);
   const [isAIBotOpen, setIsAIBotOpen] = useState(false);
   const [isMiniGameOpen, setIsMiniGameOpen] = useState(false);
+  const [isEmailClientOpen, setIsEmailClientOpen] = useState(false);
   const [currentGameUrl, setCurrentGameUrl] = useState('');
   const [currentGameTitle, setCurrentGameTitle] = useState('');
   const [isMiniGameFullScreen, setIsMiniGameFullScreen] = useState(false);
@@ -57,6 +59,7 @@ const MangaBook: React.FC = () => {
     setIsZoomed(false);
     setIsMiniGameOpen(false);
     setIsAIBotOpen(false);
+    setIsEmailClientOpen(false);
     setCurrentGameUrl('');
     setCurrentGameTitle('');
     setIsMiniGameFullScreen(false);
@@ -151,6 +154,14 @@ const MangaBook: React.FC = () => {
           setCurrentGameTitle('UFO Catcher');
           setIsMiniGameFullScreen(true);
           zoomIntoKoma(e.currentTarget);
+        } else if (pageNum === 2 && komaNum === 1) {
+          // p2_koma1: ズーム後にメールクライアントを起動
+          setIsAIBotOpen(false);
+          setCurrentGameUrl('');
+          setCurrentGameTitle('');
+          setIsMiniGameFullScreen(false);
+          zoomIntoKoma(e.currentTarget);
+          setTimeout(() => setIsEmailClientOpen(true), 450);
         }
       }}
     >
@@ -370,6 +381,19 @@ const MangaBook: React.FC = () => {
         title={currentGameTitle}
         fullScreen={isMiniGameFullScreen}
       />
+      {isEmailClientOpen && isZoomed && (
+        <div className="mini-game-backdrop" onClick={(e)=>{ if(e.target===e.currentTarget) zoomOut(); }}>
+          <div className="mini-game-modal">
+            <div className="mini-game-header">
+              <h2 className="mini-game-title">Email</h2>
+              <button onClick={zoomOut} className="mini-game-close" aria-label="Close">×</button>
+            </div>
+            <div className="mini-game-content">
+              <EmailClient />
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

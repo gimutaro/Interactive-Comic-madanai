@@ -118,6 +118,7 @@ body { font-family: 'Helvetica Neue', Arial, 'Hiragino Sans', 'Hiragino Kaku Got
 
 /* 4ページ目 5コマ目はクリック可能（右縦長） */
 [data-page="4"] .koma[data-koma="5"] { cursor: zoom-in; }
+[data-page="2"] .koma[data-koma="1"] { cursor: zoom-in; }
 
 /* ナビ（inline onclickを廃止 → JSで付与） */
 .nav-area { position: absolute; top:0; height:100%; width:50px; cursor:pointer; z-index:20; transition: background-color .3s; }
