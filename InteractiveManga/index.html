@@ -593,9 +593,7 @@
 
     document.addEventListener('DOMContentLoaded', ()=>{
       bindSpreadNav();
-      // P4の#5にズームを割当
-      const target=document.querySelector('[data-page="4"] .koma[data-koma="5"]');
-      if(target){ target.addEventListener('click', ()=>zoomIntoKoma(target)); }
+      // 以前: P4の#5にズームを割当（削除済み）
       const submitBtn = document.getElementById('submitBtn'); if(submitBtn){ submitBtn.addEventListener('click', sendMessage); }
       const closeBtn = document.getElementById('backBtn'); if(closeBtn){ closeBtn.addEventListener('click', zoomOut); }
       const input=document.getElementById('userInput'); if(input){ input.addEventListener('keypress', (e)=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendMessage(); } }); }

@@ -1,0 +1,16 @@
+node_modules/
+.next/
+.turbo/
+coverage/
+dist/
+out/
+.env*
+*.log
+*.pid
+.DS_Store
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.vercel/
+.idea/
+.vscode/
