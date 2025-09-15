@@ -1,0 +1,21 @@
+import type { Metadata } from 'next';
+import './globals.css';
+
+export const metadata: Metadata = {
+  title: 'インタラクティブ漫画（やりたいことは、まだ無い）',
+  description: 'Interactive manga reading experience with panel navigation',
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="ja">
+      <body>
+        {children}
+      </body>
+    </html>
+  );
+}

@@ -1,0 +1,319 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Helvetica Neue', Arial, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif; background: linear-gradient(135deg, #f0e6d2 0%, #e6d7c3 100%); min-height: 100vh; display: flex; justify-content: center; align-items: center; overflow-x: hidden; }
+
+/* 本体 */
+.book-container { position: relative; width: 1040px; height: 690px; perspective: 1500px; }
+.spread { position: absolute; width: 100%; height: 100%; display: flex; opacity: 0; visibility: hidden; transition: opacity .5s, visibility .5s; will-change: opacity, visibility; }
+.spread.active { opacity: 1; visibility: visible; }
+.page { width: 520px; height: 690px; position: relative; background: #fffcf9; overflow: hidden; }
+.page.left  { box-shadow: inset -10px 0 20px rgba(0,0,0,.1), -2px 0 5px rgba(0,0,0,.05); border-right: 1px solid rgba(0,0,0,.05); }
+.page.right { box-shadow: inset 10px 0 20px rgba(0,0,0,.1),  2px 0 5px rgba(0,0,0,.05); border-left:  1px solid rgba(0,0,0,.05); }
+.spread::after { content: ''; position: absolute; left: 50%; top: 0; width: 20px; height: 100%; transform: translateX(-50%); background: linear-gradient(to right, transparent, rgba(0,0,0,.2) 30%, rgba(0,0,0,.3) 50%, rgba(0,0,0,.2) 70%, transparent); pointer-events: none; z-index: 10; }
+.page.empty { background: transparent; box-shadow: none; border: none; }
+
+/* 共通 */
+.manga-page { width: 100%; height: 100%; border: 3px solid #000; background: #fff; padding: 20px; position: relative; }
+.page-number { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); font-size: 14px; color: #666; font-weight: 500; background: #fff; padding: 2px 8px; border-radius: 10px; }
+.koma { position: relative; border: 3px solid #000; overflow: hidden; background: #fafafa; transition: transform .22s ease, box-shadow .25s ease; }
+.koma img.koma-img-el { position:absolute; inset:0; width:100%; height:100%; object-fit: cover; display:block; }
+.asset-badge { position: absolute; right: 8px; bottom: 8px; z-index: 4; background: rgba(0,0,0,.75); color:#fff; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 600; letter-spacing: .02em; display: none; }
+
+/* Zoom animations removed */
+
+/* 起動ランチャー用スタイル（ブラー無しでグローのみ） */
+.launcher {
+  /* 安定描画＋遷移 */
+  transition: box-shadow .25s ease, transform .2s ease, border-color .2s ease, filter .25s ease;
+  border-radius: 8px;
+  cursor: pointer;
+  /* 枠は常に黒 */
+  border-color: #000000;
+  /* レンダリング安定化 */
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  position: relative;
+}
+
+/* 起動コマ: 画像のみわずかに拡大（コンテナ自体は拡大しない） */
+.launcher .koma-img-el {
+  transition: transform .18s ease;
+  will-change: transform;
+  transform-origin: center center;
+}
+.launcher:hover .koma-img-el,
+.launcher:focus-visible .koma-img-el {
+  transform: scale(1.035);
+}
+
+/* ホバー/フォーカス時：黒枠を維持（ブラー無し） */
+.launcher:hover,
+.launcher:focus-visible { border-color: #000000; }
+
+/* 外側にも柔らかいにじみ効果を少しだけ追加（ドロップシャドウ） */
+.launcher:hover,
+.launcher:focus-visible {
+  /* 黄色系の外側グロー（さらに控えめ） */
+  filter: drop-shadow(0 0 10px rgba(255,213,0,.20)) drop-shadow(0 0 24px rgba(255,213,0,.12));
+  /* 呼吸するグローを付与（弱め） */
+  animation: glow-breathe 2.2s ease-in-out infinite;
+}
+
+/* ===== Zoom Overlay & Camera Animation（ブラー除去） ===== */
+.zoom-overlay { position: fixed; inset: 0; background-color: #000; opacity: 0; pointer-events: none; z-index: 30; transition: opacity .6s ease-out; }
+.zoom-overlay.active { opacity: 1; pointer-events: auto; }
+
+/* Wraps the book so we can transform from the clicked panel center */
+.camera-zoom-container { min-width: 100%; min-height: 100vh; display: flex; justify-content: center; align-items: center; position: relative; transform-origin: var(--zoom-origin-x) var(--zoom-origin-y); transition: none; }
+.camera-zoom-container.zooming-in { animation: cameraZoomIn .7s ease-out forwards; }
+.camera-zoom-container.zooming-out { animation: cameraZoomOut .7s ease-out forwards; }
+
+@keyframes cameraZoomIn { 0% { transform: scale(1) translateZ(0); } 100% { transform: scale(22) translateZ(0); } }
+@keyframes cameraZoomOut { 0% { transform: scale(22) translateZ(0); } 100% { transform: scale(1) translateZ(0); } }
+
+/* クリック起動時：軽く浮かせて（hover風）＋グローを一瞬強調 */
+.koma.launching {
+  transform: translateY(-6px);
+  box-shadow:
+    0 12px 24px rgba(0,0,0,.25),
+    0 0 14px rgba(255,214,0,.20),
+    0 0 36px rgba(255,214,0,.12);
+  animation: glow-pop .55s ease-out forwards;
+}
+
+@keyframes glow-pop {
+  0% {
+    box-shadow:
+      0 6px 14px rgba(0,0,0,.18),
+      0 0 6px rgba(255,214,0,.16),
+      0 0 14px rgba(255,214,0,.10);
+  }
+  40% {
+    box-shadow:
+      0 16px 28px rgba(0,0,0,.3),
+      0 0 24px rgba(255,214,0,.28),
+      0 0 48px rgba(255,214,0,.16);
+  }
+  100% {
+    box-shadow:
+      0 12px 24px rgba(0,0,0,.25),
+      0 0 14px rgba(255,214,0,.20),
+      0 0 36px rgba(255,214,0,.12);
+  }
+}
+
+/* ゆるい呼吸グロー（ホバー中ループ） */
+@keyframes glow-breathe {
+  0%, 100% {
+    box-shadow:
+      0 0 18px rgba(255, 213, 0, .26),
+      0 0 40px rgba(255, 213, 0, .16);
+  }
+  50% {
+    box-shadow:
+      0 0 36px rgba(255, 213, 0, .45),
+      0 0 80px rgba(255, 213, 0, .28);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .launcher { transition: none; filter: none; }
+  .launcher:hover, .launcher:focus-visible { animation: none; }
+  /* 低モーション設定時は拡大も抑止 */
+  .launcher .koma-img-el { transition: none; }
+  .launcher:hover .koma-img-el,
+  .launcher:focus-visible .koma-img-el { transform: none; }
+}
+
+/* Reduced motion handling is not necessary since hover visuals are removed */
+
+/* Cover styling */
+.cover-container { width: 100%; height: 100%; position: relative; display: flex; align-items: center; justify-content: center; background: #fff; }
+.cover-image { width: 100%; height: 100%; object-fit: cover; display: none; }
+.cover-container.has-image .cover-placeholder { display: none; }
+.cover-placeholder { font-size: 24px; color: #999; }
+
+/* Front inside page */
+.front-inside { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+.qr-code-area { width: 200px; height: 200px; background: transparent; border: none; }
+
+/* ===== ページ1（上2スクエア＋下全面） ===== */
+.layout-p1v2 { height: 100%; display: flex; flex-direction: column; gap: 15px; }
+.layout-p1v2 .row.top { display: flex; gap: 15px; }
+.layout-p1v2 .row.top .koma { flex: 1 1 0; aspect-ratio: 1 / 1; }
+.layout-p1v2 .row.bottom { flex: 1 1 0; min-height: 0; }
+.layout-p1v2 .row.bottom .koma { height: 100%; }
+
+/* ===== ページ2（添付レイアウト） ===== */
+.layout-p2v2 { height: 100%; display: flex; flex-direction: column; gap: 12px; }
+.layout-p2v2 .row { display: flex; gap: 12px; }
+.layout-p2v2 .row.top { flex: 1.5 1 0; }
+.layout-p2v2 .row.top .koma { flex: 1 1 0; height: 100%; }
+.layout-p2v2 .row.mid { flex: 1 1 0; }
+.layout-p2v2 .row.mid .left   { flex: 2.2 1 0; }
+.layout-p2v2 .row.mid .thin   { flex: 0.55 1 0; }
+.layout-p2v2 .row.mid .right  { flex: 1.25 1 0; }
+.layout-p2v2 .row.mid .koma   { height: 100%; }
+.layout-p2v2 .row.bottom { flex: 0.8 1 0; }
+.layout-p2v2 .row.bottom .koma { flex: 1 1 0; height: 100%; }
+
+/* ===== ページ3（横2段：上1・下1） ===== */
+.layout-p3v2 { height: 100%; display: flex; flex-direction: column; gap: 14px; }
+.layout-p3v2 .row { display: flex; min-height: 0; }
+.layout-p3v2 .row.top { flex: 3.5 1 0; }
+.layout-p3v2 .row.bottom { flex: 1.5 1 0; }
+.layout-p3v2 .koma { flex: 1 1 0; height: 100%; }
+
+/* ===== ページ4（ページ全体 2列×3行・右#5は2行スパン） ===== */
+.layout-p4v2 { --g: 16px; height: 100%; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: repeat(3, 1fr); gap: var(--g); }
+.layout-p4v2 .k1 { grid-area: 1 / 1 / 2 / 2; }
+.layout-p4v2 .k2 { grid-area: 1 / 2 / 2 / 3; }
+.layout-p4v2 .k3 { grid-area: 2 / 1 / 3 / 2; }
+.layout-p4v2 .k4 { grid-area: 3 / 1 / 4 / 2; }
+.layout-p4v2 .k5 { grid-area: 2 / 2 / 4 / 3; min-height: 0; }
+.layout-p4v2 .koma { height: 100%; }
+
+/* ===== ページ5（上2× 下2× ＋ 最下段ワイド1） ===== */
+.layout-p5 { height: 100%; display: flex; flex-direction: column; gap: 14px; }
+.layout-p5 .row { display: flex; gap: 14px; min-height: 0; }
+.layout-p5 .row.top { flex: 1 1 0; }
+.layout-p5 .row.mid { flex: 1 1 0; }
+.layout-p5 .row.top .koma, .layout-p5 .row.mid .koma { flex: 1 1 0; aspect-ratio: 1 / 1; }
+.layout-p5 .row.bottom { flex: 1 1 0; }
+.layout-p5 .row.bottom .koma { height: 100%; flex: 1 1 0; }
+
+/* ===== ページ6（上3スクエア／中段ワイド1／下2スクエア） ===== */
+.layout-p6 { --g: 16px; height: 100%; display: flex; flex-direction: column; gap: var(--g); }
+.layout-p6 .row { display: flex; gap: var(--g); min-height: 0; }
+.layout-p6 .row.top .koma { flex: 1 1 0; aspect-ratio: 1 / 1; }
+.layout-p6 .row.mid { flex: 1 1 0; }
+.layout-p6 .row.mid .koma { flex: 1 1 0; height: 100%; }
+.layout-p6 .row.bottom .koma { flex: 1 1 0; aspect-ratio: 1 / 1; }
+
+/* ===== ページ7（上：左ワイド＋右スクエア／中：フルワイド／下：2スクエア） ===== */
+.layout-p7 { --g: 16px; height: 100%; display: flex; flex-direction: column; gap: var(--g); }
+.layout-p7 .row { display: flex; gap: var(--g); min-height: 0; }
+.layout-p7 .row.top { flex: 0 0 auto; }
+.layout-p7 .row.top .left  { flex: 2 1 0; aspect-ratio: 16 / 10; }
+.layout-p7 .row.top .right { flex: 1 1 0; aspect-ratio: 1 / 1; }
+.layout-p7 .row.mid { flex: 1 1 0; }
+.layout-p7 .row.mid .koma { flex: 1 1 0; height: 100%; }
+.layout-p7 .row.bottom { flex: 0 0 auto; }
+.layout-p7 .row.bottom .koma { flex: 1 1 0; aspect-ratio: 1 / 1; }
+
+/* ===== ページ7（上：左縦／右横広、中央：2枚＝等幅、下：フルワイド）===== */
+.layout-p7b { --g: 16px; height: 100%; display: flex; flex-direction: column; gap: var(--g); }
+.layout-p7b .row { display: grid; gap: var(--g); min-height: 0; }
+.layout-p7b .row.top { grid-template-columns: 1fr 2fr; flex: 1 1 0; }
+.layout-p7b .row.mid { grid-template-columns: 1fr 1fr; flex: 1 1 0; }
+.layout-p7b .row.bottom { flex: 1.4 1 0; }
+.layout-p7b .row .koma { height: 100%; }
+
+/* --- ページ8の微調整: mid を少し高く、bottom を少し低く --- */
+[data-page="8"].layout-p7 .row.bottom .koma { aspect-ratio: 11 / 10; }
+
+/* ===== ページ9（上：2スクエア／中：左細・右ワイド／下：2スクエア） ===== */
+.layout-p9 { --g: 16px; height: 100%; display: flex; flex-direction: column; gap: var(--g); }
+.layout-p9 .row { display: grid; gap: var(--g); min-height: 0; }
+.layout-p9 .row.top    { grid-template-columns: 1fr 1fr; }
+.layout-p9 .row.top .koma, .layout-p9 .row.bottom .koma { aspect-ratio: 1 / 1; }
+.layout-p9 .row.mid    { grid-template-columns: 1fr 2fr; flex: 1 1 0; }
+.layout-p9 .row.mid .koma { height: 100%; }
+.layout-p9 .row.bottom { grid-template-columns: 1fr 1fr; }
+
+/* --- ページ9の微調整: 中段を少し高く、下段を少し低く --- */
+[data-page="9"].layout-p9 .row.mid { flex: 1.3 1 0; }
+[data-page="9"].layout-p9 .row.bottom .koma { aspect-ratio: 11 / 10; }
+
+/* 4ページ目 5コマ目はクリック可能（右縦長） */
+[data-page="4"] .koma[data-koma="5"] { cursor: pointer; }
+[data-page="2"] .koma[data-koma="1"] { cursor: pointer; }
+[data-page="7"] .koma[data-koma="5"] { cursor: pointer; }
+[data-page="6"] .koma[data-koma="4"] { cursor: pointer; }
+[data-page="9"] .koma[data-koma="4"] { cursor: pointer; }
+
+/* ナビ（inline onclickを廃止 → JSで付与） */
+.nav-area { position: absolute; top:0; height:100%; width:50px; cursor:pointer; z-index:20; transition: background-color .3s; }
+.nav-area.prev { right:0; }
+.nav-area.next { left:0; }
+.nav-area::after { content:''; position:absolute; top:50%; transform:translateY(-50%); width:0; height:0; border-style: solid; opacity:0; transition: opacity .3s; }
+.nav-area.prev::after { right:15px; border-width:15px 0 15px 20px; border-color: transparent transparent transparent #333; }
+.nav-area.next::after { left:15px; border-width:15px 20px 15px 0; border-color: transparent #333 transparent transparent; }
+
+/* ===== AIボット ===== */
+
+.ai-bot-wrapper { position: fixed; inset: 0; z-index: 40; opacity: 0; transition: opacity .5s ease; will-change: opacity; visibility: hidden; pointer-events: none; }
+.ai-bot-wrapper.active { opacity: 1; visibility: visible; pointer-events: auto; }
+
+.ai-bot-container { width: 100%; height: 100%; position: relative; background-image: url('/images/AIbot.png'); background-size: contain; background-position: center; background-repeat: no-repeat; }
+.image-background { position: absolute; inset: 0; pointer-events: none; }
+.message-counter { position: absolute; top: 20px; left: 20px; background: rgba(255, 255, 255, 0.95); color: #333; padding: 10px 20px; border-radius: 20px; font-size: 18px; font-weight: bold; z-index: 15; border: 2px solid rgba(0, 0, 0, 0.1); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); }
+
+.ai-response-area { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80%; max-width: 800px; max-height: 60vh; background: rgba(20,20,30,.9); border-radius: 20px; padding: 30px; box-shadow: 0 20px 60px rgba(0,0,0,.3); display: none; overflow-y: auto; }
+.ai-response-area.show { display: block; }
+.ai-response-text { font-size: 18px; line-height: 1.6; color: #fff; word-wrap: break-word; }
+
+.input-area { position: absolute; left: 0; right: 0; bottom: 0; background: linear-gradient(to top, rgba(26,26,46, .85), rgba(26,26,46, .75)); padding: 20px; border-top: 2px solid rgba(255,255,255,.1); z-index: 10; }
+.input-container { max-width: 800px; margin: 0 auto; display: flex; gap: 10px; }
+.text-input { flex: 1; padding: 15px 20px; font-size: 16px; border: 2px solid rgba(255,255,255,.2); border-radius: 30px; background: rgba(255,255,255,.1); color: #fff; outline: none; transition: all .3s; }
+.text-input::placeholder { color: rgba(255,255,255,.5); }
+.text-input:focus { border-color: #667eea; background: rgba(255,255,255,.15); }
+.submit-btn { padding: 15px 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; border: none; border-radius: 30px; font-size: 16px; font-weight: 700; cursor: pointer; transition: all .3s; white-space: nowrap; }
+/* hover効果を削除 */
+.submit-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+.back-btn { position: fixed; top: 20px; right: 40px; color: white; font-size: 40px; font-weight: bold; cursor: pointer; opacity: 0; z-index: 45; transition: opacity .3s; pointer-events: none; background: rgba(0,0,0,.3); width: 50px; height: 50px; border-radius: 50%; display:flex; align-items:center; justify-content:center; }
+.back-btn.visible { opacity: .85; pointer-events: auto; }
+/* hover効果を削除 */
+
+/* ===== サウンドトグル ===== */
+.sound-toggle {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 45;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  font-size: 20px; /* emoji size */
+  font-weight: 700;
+  border-radius: 9999px;
+  border: none;
+  cursor: pointer;
+  color: #fff;
+  background: rgba(31,41,55,.9);
+  box-shadow: 0 4px 12px rgba(0,0,0,.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sound-toggle.on { background: linear-gradient(135deg, #16a34a, #22c55e); }
+.sound-toggle.off { background: linear-gradient(135deg, #6b7280, #4b5563); }
+.sound-toggle:focus { outline: 2px solid rgba(255,255,255,.6); outline-offset: 2px; }
+
+/* ===== ミニゲームモーダル ===== */
+.mini-game-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 50; opacity: 1; transition: opacity .3s ease; }
+.mini-game-backdrop.closing { opacity: 0; }
+.mini-game-modal { position: relative; width: 92vw; height: 85vh; max-width: 1200px; background: #fff; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.4); overflow: hidden; display: flex; flex-direction: column; }
+.mini-game-modal.fullscreen { width: 100vw; height: 100vh; max-width: none; border-radius: 0; background: #000; }
+.mini-game-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #1f2937; color: #fff; }
+.mini-game-title { font-size: 18px; font-weight: 700; }
+.mini-game-close { color: #d1d5db; font-weight: 700; font-size: 22px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; cursor: pointer; }
+/* hover効果を削除 */
+.mini-game-content { flex: 1 1 0; min-height: 0; background: #000; }
+.mini-game-modal.fullscreen .mini-game-content { position: absolute; inset: 0; z-index: 1; }
+.mini-game-modal.fullscreen .mini-game-header { position: absolute; top: 8px; right: 8px; background: transparent; padding: 0; z-index: 2; }
+.mini-game-modal.fullscreen .mini-game-title { display: none; }
+.mini-game-iframe { width: 100%; height: 100%; border: 0; display: block; background: #000; }
+.mini-game-iframe.hide { opacity: 0; transition: opacity .15s ease; }
+
+/* Improve visibility/usability of close button in fullscreen */
+.mini-game-modal.fullscreen .mini-game-close {
+  width: 44px;
+  height: 44px;
+  font-size: 28px;
+  color: #fff;
+  background: rgba(0,0,0,.35);
+}
+/* hover効果を削除 */
+
+/* 余白 */
