@@ -322,15 +322,15 @@ Tel: 03-1234-5678
                 <div className="h-full flex flex-col">
                   <div className="bg-gray-800 h-8 relative">
                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex gap-2">
-                      <button className="w-3 h-3 bg-green-500 rounded-full hover:bg-green-600 transition-colors"></button>
-                      <button className="w-3 h-3 bg-yellow-500 rounded-full hover:bg-yellow-600 transition-colors"></button>
-                      <button className="w-3 h-3 bg-red-500 rounded-full hover:bg-red-600 transition-colors"></button>
+                      <button className="w-3 h-3 bg-green-500 rounded-full transition-colors"></button>
+                      <button className="w-3 h-3 bg-yellow-500 rounded-full transition-colors"></button>
+                      <button className="w-3 h-3 bg-red-500 rounded-full transition-colors"></button>
                     </div>
                   </div>
 
                   <div className="flex-1 flex overflow-hidden">
                     <div className="w-56 bg-gray-50 border-r border-gray-200 p-4">
-                      <div className="flex items-center bg-white border border-gray-300 rounded-lg px-3 py-2 mb-4 hover:border-gray-400 transition-colors">
+                      <div className="flex items-center bg-white border border-gray-300 rounded-lg px-3 py-2 mb-4 transition-colors">
                         <Search className="w-4 h-4 mr-2 text-gray-400" />
                         <input
                           type="text"
@@ -340,13 +340,13 @@ Tel: 03-1234-5678
                           onChange={(e) => setSearchQuery(e.target.value)}
                         />
                         {searchQuery && (
-                          <button onClick={() => setSearchQuery('')} className="text-gray-400 hover:text-gray-600">×</button>
+                          <button onClick={() => setSearchQuery('')} className="text-gray-400">×</button>
                         )}
                       </div>
-                      <button className="w-full bg-blue-500 text-white rounded-lg py-2 px-4 mb-4 hover:bg-blue-600 transition-colors">新規作成</button>
+                      <button className="w-full bg-blue-500 text-white rounded-lg py-2 px-4 mb-4 transition-colors">新規作成</button>
                       <div className="space-y-2">
                         <div
-                          className={`flex items-center gap-2 p-2 rounded cursor-pointer ${currentView === 'inbox' ? 'bg-blue-50' : 'hover:bg-gray-100'}`}
+                          className={`flex items-center gap-2 p-2 rounded cursor-pointer ${currentView === 'inbox' ? 'bg-blue-50' : ''}`}
                           onClick={() => { setCurrentView('inbox'); setSelectedEmail(null); setSearchQuery(''); }}
                         >
                           <Mail className="w-4 h-4" />
@@ -356,7 +356,7 @@ Tel: 03-1234-5678
                           )}
                         </div>
                         <div
-                          className={`flex items-center gap-2 p-2 rounded cursor-pointer ${currentView === 'trash' ? 'bg-blue-50' : 'hover:bg-gray-100'}`}
+                          className={`flex items-center gap-2 p-2 rounded cursor-pointer ${currentView === 'trash' ? 'bg-blue-50' : ''}`}
                           onClick={() => { setCurrentView('trash'); setSelectedEmail(null); setSearchQuery(''); }}
                         >
                           <Trash2 className="w-4 h-4" />
@@ -368,14 +368,14 @@ Tel: 03-1234-5678
                     {selectedEmail ? (
                       <div className="flex-1 flex flex-col bg-white">
                         <div className="border-b border-gray-200 p-4">
-                          <button onClick={() => setSelectedEmail(null)} className="flex items-center gap-2 text-blue-500 hover:text-blue-600 mb-4">
+                          <button onClick={() => setSelectedEmail(null)} className="flex items-center gap-2 text-blue-500 mb-4">
                             <ChevronLeft className="w-4 h-4" />
                             <span>{currentView === 'inbox' ? '受信トレイに戻る' : 'ゴミ箱に戻る'}</span>
                           </button>
                           <div className="flex items-start justify-between mb-2">
                             <h2 className="text-xl font-semibold">{selectedEmail.subject}</h2>
                             {!selectedEmail.isDeleted && (
-                              <button onClick={() => handleDeleteEmail(selectedEmail.id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-gray-100 rounded transition-colors ml-2" title="ゴミ箱に移動">
+                              <button onClick={() => handleDeleteEmail(selectedEmail.id)} className="p-1.5 text-gray-400 rounded transition-colors ml-2" title="ゴミ箱に移動">
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             )}
@@ -413,7 +413,7 @@ Tel: 03-1234-5678
                             </div>
                           ) : (
                             displayedEmails.map((email) => (
-                              <div key={email.id} onClick={() => handleEmailClick(email)} className={`border-b border-gray-100 p-4 hover:bg-gray-50 cursor-pointer transition-colors ${email.unread && !email.isDeleted ? 'bg-blue-50' : ''}`}>
+                              <div key={email.id} onClick={() => handleEmailClick(email)} className={`border-b border-gray-100 p-4 cursor-pointer transition-colors ${email.unread && !email.isDeleted ? 'bg-blue-50' : ''}`}>
                                 <div className="flex items-start gap-3">
                                   <div className="pt-1">
                                     {email.unread && !email.isDeleted ? (
@@ -456,4 +456,3 @@ Tel: 03-1234-5678
 };
 
 export default EmailClient;
-

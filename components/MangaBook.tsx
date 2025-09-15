@@ -1,92 +1,155 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import Image from 'next/image';
 import AIBot from './AIBot';
 import MiniGameModal from './MiniGameModal';
-import EmailClient from './EmailClient';
 
 const MangaBook: React.FC = () => {
   const [currentSpread, setCurrentSpread] = useState(1);
-  const [isZoomed, setIsZoomed] = useState(false);
   const [isAIBotOpen, setIsAIBotOpen] = useState(false);
   const [isMiniGameOpen, setIsMiniGameOpen] = useState(false);
-  const [isEmailClientOpen, setIsEmailClientOpen] = useState(false);
   const [currentGameUrl, setCurrentGameUrl] = useState('');
   const [currentGameTitle, setCurrentGameTitle] = useState('');
   const [isMiniGameFullScreen, setIsMiniGameFullScreen] = useState(false);
-  const bookRef = useRef<HTMLDivElement>(null);
+  const [isPageSoundOn, setIsPageSoundOn] = useState(true);
+  const cleanupTimerRef = useRef<number | null>(null);
   const totalSpreads = 7;
 
+  // Zoom animation state
+  const cameraRef = useRef<HTMLDivElement>(null);
+  const [isZoomingIn, setIsZoomingIn] = useState(false);
+  const [isZoomingOut, setIsZoomingOut] = useState(false);
+  const [isZoomed, setIsZoomed] = useState(false);
+  const [isZoomOverlayActive, setIsZoomOverlayActive] = useState(false);
+
+  // Page-turn SE
+  const pageTurnAudioRef = useRef<HTMLAudioElement | null>(null);
+  const playPageTurnSE = () => {
+    if (!isPageSoundOn) return;
+    const el = pageTurnAudioRef.current;
+    if (!el) return;
+    try { el.currentTime = 0; } catch (_) {}
+    el.play().catch(() => {});
+  };
+
   const showSpread = (n: number) => {
-    if (isZoomed) return;
+    if (isAIBotOpen || isMiniGameOpen || isZoomingIn || isZoomingOut) return;
+    if (n === currentSpread) return;
     setCurrentSpread(n);
+    playPageTurnSE();
   };
 
   const nextSpread = () => {
-    if (isZoomed) return;
+    if (isAIBotOpen || isMiniGameOpen || isZoomingIn || isZoomingOut) return;
     if (currentSpread < totalSpreads) showSpread(currentSpread + 1);
   };
 
   const prevSpread = () => {
-    if (isZoomed) return;
+    if (isAIBotOpen || isMiniGameOpen || isZoomingIn || isZoomingOut) return;
     if (currentSpread > 1) showSpread(currentSpread - 1);
   };
 
-  const zoomIntoKoma = (komaEl: HTMLElement) => {
-    if (isZoomed || !bookRef.current) return;
-
-    const rect = komaEl.getBoundingClientRect();
-    const bookRect = bookRef.current.getBoundingClientRect();
-    const tweakX = -24;
-    const cx = rect.left - bookRect.left + rect.width / 2 + tweakX;
-    const cy = rect.top - bookRect.top + rect.height / 2;
-
-    bookRef.current.style.setProperty('--zoom-origin-x', `${cx}px`);
-    bookRef.current.style.setProperty('--zoom-origin-y', `${cy}px`);
-    document.body.style.overflow = 'hidden';
-    bookRef.current.classList.add('zooming-in');
-
-    setTimeout(() => {
-      // ズーム状態へ移行（以降の演出は useEffect で制御）
-      setIsZoomed(true);
-    }, 400);
-  };
-
-  const zoomOut = () => {
-    if (!isZoomed || !bookRef.current) return;
-
-    setIsZoomed(false);
-    setIsMiniGameOpen(false);
-    setIsAIBotOpen(false);
-    setIsEmailClientOpen(false);
-    setCurrentGameUrl('');
-    setCurrentGameTitle('');
-    setIsMiniGameFullScreen(false);
-    bookRef.current.classList.remove('zooming-in');
-    bookRef.current.classList.add('zooming-out');
-
-    setTimeout(() => {
-      if (bookRef.current) {
-        bookRef.current.classList.remove('zooming-out');
+  // ズームアウトを実行
+  const performZoomOut = () => {
+    if (cameraRef.current) {
+      cameraRef.current.classList.remove('zooming-in');
+      cameraRef.current.classList.add('zooming-out');
+    }
+    setIsZoomingIn(false);
+    setIsZoomingOut(true);
+    setIsZoomOverlayActive(false);
+    // アニメーション終了でリセット
+    cleanupTimerRef.current && window.clearTimeout(cleanupTimerRef.current);
+    cleanupTimerRef.current = window.setTimeout(() => {
+      if (cameraRef.current) {
+        cameraRef.current.classList.remove('zooming-out');
       }
-      document.body.style.overflow = 'auto';
+      setIsZoomed(false);
+      setIsZoomingOut(false);
+      // スクロール復帰
+      try { document.body.style.overflow = ''; } catch (_) {}
     }, 720);
   };
 
+  // 閉じ処理（ズーム演出あり）
+  const closeActiveUI = () => {
+    // UIを閉じる（モーダルは内部でフェードアウト）
+    setIsMiniGameOpen(false);
+    setIsAIBotOpen(false);
+    setCurrentGameUrl('');
+    setCurrentGameTitle('');
+    setIsMiniGameFullScreen(false);
+    // 表示中ならズームアウト
+    if (isZoomed || isZoomingIn) {
+      performZoomOut();
+    }
+  };
+
+  useEffect(() => {
+    //  iFrame内ミニゲームからの終了要求（×ボタンなど）を受け取る
+    const handleMessage = (e: MessageEvent) => {
+      try {
+        if (e.origin !== window.location.origin) return;
+      } catch (_) {}
+      if (e && (e as any).data && (e as any).data.type === 'CLOSE_MINI_GAME') {
+        closeActiveUI();
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => {
+      window.removeEventListener('message', handleMessage);
+      // Clean up any pending timers on unmount
+      if (cleanupTimerRef.current) {
+        window.clearTimeout(cleanupTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Prepare page-turn audio element
+  useEffect(() => {
+    // Use public/ served path
+    const el = new Audio('/sounds/ThumbThrough.mp3');
+    try { el.preload = 'auto'; } catch (_) {}
+    // Volume: make page-turn sound a bit quieter
+    try { el.volume = 0.25; } catch (_) {}
+    pageTurnAudioRef.current = el;
+    return () => {
+      try { el.pause(); } catch (_) {}
+      // Detach source to hint GC
+      try { el.src = ''; } catch (_) {}
+      pageTurnAudioRef.current = null;
+    };
+  }, []);
+
+  // Optionally restore saved preference
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('pageSoundOn');
+      if (saved != null) setIsPageSoundOn(saved === '1');
+    } catch (_) {}
+  }, []);
+
+  // Persist preference on change
+  useEffect(() => {
+    try { localStorage.setItem('pageSoundOn', isPageSoundOn ? '1' : '0'); } catch (_) {}
+  }, [isPageSoundOn]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isZoomed) {
-        if (e.key === 'Escape') zoomOut();
+      // UI表示中はEscで閉じる、ナビは抑止
+      if (isAIBotOpen || isMiniGameOpen) {
+        if (e.key === 'Escape') closeActiveUI();
         return;
       }
-      if (e.key === 'ArrowLeft') nextSpread();
-      else if (e.key === 'ArrowRight') prevSpread();
+      // Reading flow: Right arrow => next, Left arrow => previous
+      if (e.key === 'ArrowRight') nextSpread();
+      else if (e.key === 'ArrowLeft') prevSpread();
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isZoomed, currentSpread]);
+  }, [isAIBotOpen, isMiniGameOpen, currentSpread]);
 
   useEffect(() => {
     let startX = 0;
@@ -112,14 +175,37 @@ const MangaBook: React.FC = () => {
       document.removeEventListener('touchstart', handleTouchStart);
       document.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [currentSpread, isZoomed]);
+  }, [currentSpread, isAIBotOpen, isMiniGameOpen]);
 
-  // ズーム完了後にミニゲームURLが設定されていればモーダルを開く
-  useEffect(() => {
-    if (isZoomed && currentGameUrl) {
-      setIsMiniGameOpen(true);
+  // クリックしたコマの中心へズーム → アプリ起動
+  const launchWithZoom = (el: HTMLDivElement, launchFn: () => void) => {
+    if (!el || isZoomingIn || isZoomingOut || isAIBotOpen || isMiniGameOpen) return;
+    const rect = el.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    if (cameraRef.current) {
+      cameraRef.current.style.setProperty('--zoom-origin-x', `${cx}px`);
+      cameraRef.current.style.setProperty('--zoom-origin-y', `${cy}px`);
+      // ズーム開始
+      cameraRef.current.classList.add('zooming-in');
     }
-  }, [isZoomed, currentGameUrl]);
+    setIsZoomOverlayActive(true);
+    setIsZoomingIn(true);
+    try { document.body.style.overflow = 'hidden'; } catch (_) {}
+
+    // 起動パネルの軽いエフェクト
+    el.classList.add('launching');
+    window.setTimeout(() => el.classList.remove('launching'), 550);
+
+    // ズーム完了直前にアプリ起動
+    cleanupTimerRef.current && window.clearTimeout(cleanupTimerRef.current);
+    cleanupTimerRef.current = window.setTimeout(() => {
+      setIsZoomed(true);
+      setIsZoomingIn(false);
+      launchFn();
+    }, 620);
+  };
+
 
   const KomaPanel = ({ pageNum, komaNum, assetName, className = "" }: {
     pageNum: number;
@@ -132,36 +218,55 @@ const MangaBook: React.FC = () => {
       data-koma={komaNum}
       data-asset={assetName}
       onClick={(e) => {
+        const el = e.currentTarget as HTMLDivElement;
+        // 起動対象かどうか判定（ズーム→起動）
         if (pageNum === 3 && komaNum === 1) {
-          // p3_koma1: AIボットのみ（ゲーム状態をクリア）
-          setCurrentGameUrl('');
-          setCurrentGameTitle('');
-          setIsMiniGameFullScreen(false);
-          // 先にズーム演出を実行し、その後にAIボットを表示
-          zoomIntoKoma(e.currentTarget);
-          setTimeout(() => setIsAIBotOpen(true), 450);
+          launchWithZoom(el, () => {
+            setIsAIBotOpen(true);
+            setCurrentGameUrl('');
+            setCurrentGameTitle('');
+            setIsMiniGameFullScreen(false);
+          });
         } else if (pageNum === 7 && komaNum === 5) {
-          // p7_koma5: ズーム後にテトリスを起動
-          setIsAIBotOpen(false);
-          setCurrentGameUrl('/mini-games/p7_koma5_tetris.html');
-          setCurrentGameTitle('Tetris');
-          setIsMiniGameFullScreen(true);
-          zoomIntoKoma(e.currentTarget);
+          launchWithZoom(el, () => {
+            setIsAIBotOpen(false);
+            setCurrentGameUrl('/mini-games/p7_koma5_tetris.html');
+            setCurrentGameTitle('Tetris');
+            setIsMiniGameFullScreen(true);
+            setIsMiniGameOpen(true);
+          });
+        } else if (pageNum === 6 && komaNum === 4) {
+          launchWithZoom(el, () => {
+            setIsAIBotOpen(false);
+            setCurrentGameUrl('/mini-games/p6_koma4_bubble.html');
+            setCurrentGameTitle('Interactive Bubbles');
+            setIsMiniGameFullScreen(true);
+            setIsMiniGameOpen(true);
+          });
         } else if (pageNum === 4 && komaNum === 5) {
-          // p4_koma5: ズーム後にUFOキャッチャーをフルスクリーン起動
-          setIsAIBotOpen(false);
-          setCurrentGameUrl('/mini-games/p4_koma5_ufo.html');
-          setCurrentGameTitle('UFO Catcher');
-          setIsMiniGameFullScreen(true);
-          zoomIntoKoma(e.currentTarget);
+          launchWithZoom(el, () => {
+            setIsAIBotOpen(false);
+            setCurrentGameUrl('/mini-games/p4_koma5_ufo.html');
+            setCurrentGameTitle('UFO Catcher');
+            setIsMiniGameFullScreen(true);
+            setIsMiniGameOpen(true);
+          });
+        } else if (pageNum === 9 && komaNum === 4) {
+          launchWithZoom(el, () => {
+            setIsAIBotOpen(false);
+            setCurrentGameUrl('/mini-games/p9_koma4_shooting.html');
+            setCurrentGameTitle('Shooting');
+            setIsMiniGameFullScreen(true);
+            setIsMiniGameOpen(true);
+          });
         } else if (pageNum === 2 && komaNum === 1) {
-          // p2_koma1: ズーム後にメールクライアントを起動
-          setIsAIBotOpen(false);
-          setCurrentGameUrl('');
-          setCurrentGameTitle('');
-          setIsMiniGameFullScreen(false);
-          zoomIntoKoma(e.currentTarget);
-          setTimeout(() => setIsEmailClientOpen(true), 450);
+          launchWithZoom(el, () => {
+            setIsAIBotOpen(false);
+            setCurrentGameUrl('/mini-games/p2_koma1_email.html');
+            setCurrentGameTitle('Email');
+            setIsMiniGameFullScreen(true);
+            setIsMiniGameOpen(true);
+          });
         }
       }}
     >
@@ -170,15 +275,18 @@ const MangaBook: React.FC = () => {
         alt={assetName}
         data-name={assetName}
         src={`/images/${assetName}.png`}
+        loading="eager"
+        decoding="async"
       />
-      <span className="asset-badge">{assetName}</span>
     </div>
   );
 
   return (
     <>
-      <div className="book-container" id="bookRoot" ref={bookRef}>
-        {/* 見開き1（表紙） */}
+      {/* カメラズーム用コンテナで本体をラップ */}
+      <div className={`camera-zoom-container${isZoomingIn ? ' zooming-in' : ''}${isZoomingOut ? ' zooming-out' : ''}`} id="cameraZoomContainer" ref={cameraRef}>
+      <div className="book-container" id="bookRoot">
+          {/* 見開き1（表紙） */}
         <div className={`spread has-empty ${currentSpread === 1 ? 'active' : ''}`} data-spread="1">
           <div className="page left">
             <div className="cover-container has-image" id="front-cover" data-asset="cover_front">
@@ -189,7 +297,6 @@ const MangaBook: React.FC = () => {
                 src="/images/cover_front.png"
                 style={{ display: 'block' }}
               />
-              <span className="asset-badge">cover_front</span>
             </div>
             <div className="nav-area next" onClick={nextSpread} />
           </div>
@@ -223,7 +330,7 @@ const MangaBook: React.FC = () => {
           <div className="page left">
             <div className="manga-page layout-p3v2" data-page="3">
               <div className="row top">
-                <KomaPanel pageNum={3} komaNum={1} assetName="p3_koma1" />
+                <KomaPanel pageNum={3} komaNum={1} assetName="p3_koma1" className="launcher" />
               </div>
               <div className="row bottom">
                 <KomaPanel pageNum={3} komaNum={2} assetName="p3_koma2" />
@@ -234,7 +341,7 @@ const MangaBook: React.FC = () => {
           <div className="page right">
             <div className="manga-page layout-p2v2" data-page="2">
               <div className="row top">
-                <KomaPanel pageNum={2} komaNum={1} assetName="p2_koma1" className="full" />
+                <KomaPanel pageNum={2} komaNum={1} assetName="p2_koma1" className="full launcher" />
               </div>
               <div className="row mid">
                 <KomaPanel pageNum={2} komaNum={2} assetName="p2_koma2" className="left" />
@@ -274,7 +381,7 @@ const MangaBook: React.FC = () => {
               <KomaPanel pageNum={4} komaNum={2} assetName="p4_koma2" className="k2" />
               <KomaPanel pageNum={4} komaNum={3} assetName="p4_koma3" className="k3" />
               <KomaPanel pageNum={4} komaNum={4} assetName="p4_koma4" className="k4" />
-              <KomaPanel pageNum={4} komaNum={5} assetName="p4_koma5" className="k5" />
+              <KomaPanel pageNum={4} komaNum={5} assetName="p4_koma5" className="k5 launcher" />
             </div>
             <div className="nav-area prev" onClick={prevSpread} />
           </div>
@@ -293,7 +400,7 @@ const MangaBook: React.FC = () => {
                 <KomaPanel pageNum={7} komaNum={4} assetName="p7_koma4" className="k4" />
               </div>
               <div className="row bottom">
-                <KomaPanel pageNum={7} komaNum={5} assetName="p7_koma5" className="k5" />
+                <KomaPanel pageNum={7} komaNum={5} assetName="p7_koma5" className="k5 launcher" />
               </div>
             </div>
             <div className="nav-area next" onClick={nextSpread} />
@@ -306,7 +413,7 @@ const MangaBook: React.FC = () => {
                 <KomaPanel pageNum={6} komaNum={3} assetName="p6_koma3" />
               </div>
               <div className="row mid">
-                <KomaPanel pageNum={6} komaNum={4} assetName="p6_koma4" />
+                <KomaPanel pageNum={6} komaNum={4} assetName="p6_koma4" className="launcher" />
               </div>
               <div className="row bottom">
                 <KomaPanel pageNum={6} komaNum={5} assetName="p6_koma5" />
@@ -327,7 +434,7 @@ const MangaBook: React.FC = () => {
               </div>
               <div className="row mid">
                 <KomaPanel pageNum={9} komaNum={3} assetName="p9_koma3" />
-                <KomaPanel pageNum={9} komaNum={4} assetName="p9_koma4" />
+                <KomaPanel pageNum={9} komaNum={4} assetName="p9_koma4" className="launcher" />
               </div>
               <div className="row bottom">
                 <KomaPanel pageNum={9} komaNum={5} assetName="p9_koma5" />
@@ -366,34 +473,35 @@ const MangaBook: React.FC = () => {
                 src="/images/cover_back.png"
                 style={{ display: 'block' }}
               />
-              <span className="asset-badge">cover_back</span>
             </div>
             <div className="nav-area prev" onClick={prevSpread} />
           </div>
         </div>
       </div>
-
-      <AIBot isActive={isAIBotOpen} onClose={zoomOut} />
+      </div>
+      {/* ズーム用オーバーレイ（モーダルの下に敷く） */}
+      <div className={`zoom-overlay${isZoomOverlayActive ? ' active' : ''}`} />
+      {/* ズーム機能 */}
+      <AIBot isActive={isAIBotOpen} onClose={closeActiveUI} />
       <MiniGameModal
-        isOpen={isMiniGameOpen && isZoomed}
-        onClose={zoomOut}
+        isOpen={isMiniGameOpen}
+        onClose={closeActiveUI}
         gameUrl={currentGameUrl}
         title={currentGameTitle}
         fullScreen={isMiniGameFullScreen}
       />
-      {isEmailClientOpen && isZoomed && (
-        <div className="mini-game-backdrop" onClick={(e)=>{ if(e.target===e.currentTarget) zoomOut(); }}>
-          <div className="mini-game-modal">
-            <div className="mini-game-header">
-              <h2 className="mini-game-title">Email</h2>
-              <button onClick={zoomOut} className="mini-game-close" aria-label="Close">×</button>
-            </div>
-            <div className="mini-game-content">
-              <EmailClient />
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Email client now runs as an iframe mini-game, similar to other games */}
+
+      {/* ページめくり音 ON/OFF トグル */}
+      <button
+        type="button"
+        className={`sound-toggle${isPageSoundOn ? ' on' : ' off'}`}
+        aria-pressed={isPageSoundOn}
+        aria-label={`ページめくり音 ${isPageSoundOn ? 'オン' : 'オフ'}`}
+        onClick={() => setIsPageSoundOn(!isPageSoundOn)}
+      >
+        {isPageSoundOn ? '🔊' : '🔇'}
+      </button>
     </>
   );
 };

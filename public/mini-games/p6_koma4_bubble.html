@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>インタラクティブアート：クリックで白い吹き出し</title>
+  <style>
+    /* ====== 基本設定 ====== */
+    :root {
+      /* JSが読む寿命（ms） */
+      --life-ms: 6600;
+      /* 後方互換のため残置（現実装では未使用） */
+      --fade-lead-ms: 600;
+      /* デザイン用（CSSアニメ寿命と幅制御） */
+      --max-w: 320px;   /* 吹き出し最大幅 */
+      --w: 240px;       /* デフォルト幅（JSで上書き可）*/
+      --life: 6600ms;   /* CSSアニメ寿命（JSで上書き可）*/
+      /* 既定の背景画像。必要に応じて差し替え可（?bg= パラメータ対応） */
+      --bg-url: url("/images/p6_koma4.png");
+    }
+
+    html, body { height: 100%; margin: 0; }
+
+    /* 背景：画像を差し替えて使う。center/cover で全面表示 */
+    .stage {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background-color: #0b0b0b; /* 台紙カラー */
+      background-image: var(--bg-url);
+      background-position: center;
+      background-size: cover;      /* 画面いっぱいに表示。上下左右が多少トリミングされる場合あり */
+      background-repeat: no-repeat;
+      background-attachment: fixed; /* スクロール時の視差効果（不要なら削除） */
+      /* 差し替え方法：document.documentElement.style.setProperty('--bg-url', 'url("your-image.png")') */
+      overflow: hidden;
+      cursor: pointer;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+      outline: none; /* キーボード操作用に focus 付与するが枠は非表示 */
+    }
+
+    /* ネット情報“風”のカード型吹き出し */
+    .bubble{
+      position: absolute;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      max-width: var(--max-w);
+      width: var(--w);
+      background: #ffffff;
+      border-radius: 14px;
+      box-shadow: 0 18px 40px rgba(0,0,0,.28), 0 0 0 1px rgba(0,0,0,.06) inset;
+      overflow: hidden;
+      z-index: 2;
+      pointer-events: none; /* 背後のクリックを妨げない */
+      transform-origin: var(--tail-side, left) bottom;
+      animation: appear 140ms ease-out, life var(--life) cubic-bezier(.55,.08,.25,1) forwards;
+      color: #111827;
+      font: 600 16px/1.35 system-ui, -apple-system, "Segoe UI", "Noto Sans JP", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+    }
+
+    /* URLバー風ヘッダー（favicon + URL の2カラム） */
+    .bubble__head{
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      background: linear-gradient(#f8fafc, #eef2f7);
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 12px;
+      color: #374151;
+    }
+    .favicon{ width:12px; height:12px; border-radius:50%; background: radial-gradient(circle at 30% 30%, #60a5fa, #2563eb); box-shadow: 0 0 0 1px rgba(0,0,0,.08) inset }
+    .url{ min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity:.9 }
+
+    /* 本文 */
+    .bubble__body{
+      padding: 12px 14px 14px;
+      line-height: 1.35;
+      font-weight: 700;
+      letter-spacing: .01em;
+      color: #111827;
+      white-space: normal;
+      word-break: break-word;
+    }
+
+    /* しっぽ（左右／上下切替対応） */
+    .bubble::after{
+      content: "";
+      position: absolute;
+      bottom: -10px;
+      width: 0; height: 0;
+      border: 10px solid transparent;
+      filter: drop-shadow(0 2px 1px rgba(0,0,0,.15));
+    }
+    .tail-left::after{ left: 22px; border-top-color:#ffffff; border-bottom:none; bottom:-1px }
+    .tail-right::after{ right:22px; border-top-color:#ffffff; border-bottom:none; bottom:-1px }
+    .flip-vert::after{ top:-1px; bottom:auto; border-top:none; border-bottom-color:#ffffff; filter: drop-shadow(0 -2px 1px rgba(0,0,0,.12)) }
+
+    /* アニメーション（サイズは不変。最後に透過で消える） */
+    @keyframes appear{ from{ opacity:0; transform: translateY(6px) } to{ opacity:1; transform: translateY(0) } }
+    @keyframes life{ 0%{opacity:1} 70%{opacity:1} 100%{opacity:0} }
+
+    /* 視覚的ガイド（任意でオフにしてOK） */
+    .hint {
+      position: absolute;
+      left: 50%; top: 50%; transform: translate(-50%, -50%);
+      color: rgba(255,255,255,.85);
+      font: 500 14px/1.4 system-ui, -apple-system, "Segoe UI", "Noto Sans JP", sans-serif;
+      background: rgba(0,0,0,.28);
+      padding: .5rem .75rem; border-radius: 999px;
+      letter-spacing: .05em;
+      user-select: none; pointer-events: none;
+    }
+  </style>
+  <script>
+    // 親ウィンドウ（モーダル）へ ESC でクローズ要求を送る（ズームアウト復帰用）
+    window.addEventListener('keydown', function(e){
+      if (e.key === 'Escape') {
+        try { if (window.parent) window.parent.postMessage({ type: 'CLOSE_MINI_GAME' }, '*'); } catch (err) {}
+      }
+    });
+  </script>
+</head>
+<body>
+  <div id="stage" class="stage" tabindex="0" role="application" aria-label="クリック／タップで白い吹き出しが出ます">
+    <div id="hint" class="hint">画面をクリック／タップ</div>
+  </div>
+
+  <script>
+    // ==============================
+    //  表示テキスト（編集可）
+    // ==============================
+    const MESSAGES = [
+      "ゲーム開発エンジンの操作が複雑すぎる",
+      "数年かけて開発したゲームが4本しか売れなかった…",
+      "1年で作りたかったゲームが完成までに4年かかった。",
+      "ゲーム開発者の9割以上が、1本も完成させずに挫折する。",
+      "10万円かけて作ったゲームの初月収益が1万円。",
+      "原因不明なエラーを解決できず1週間経った。",
+      "一人で黙々と作業があり孤独。",
+      "テストプレイしたら山ほどエラーが見つかる。",
+      "休日はゲーム開発なので、友達も家族との時間はない。",
+      "ゲームだけじゃなくてマーケティング知識も必要。"
+    ];
+
+    // ネット情報“風”URL 候補（編集可）
+    const URL_SOURCES = [
+      'https://qiita.com/articles/best-practices',
+      'https://zenn.dev/topics/unity',
+      'https://developer.mozilla.org/ja/docs/Web',
+      'https://docs.unity3d.com/Manual/',
+      'https://threejs.org/docs/#manual/en/introduction/Creating-a-scene',
+      'https://stackoverflow.com/questions/ask',
+      'https://dev.to/t/unity',
+      'https://medium.com/tag/game-development',
+      'https://github.com/search?q=game+build+pipeline',
+      'https://learn.unity.com/',
+      'https://deno.land/manual',
+      'https://vitejs.dev/guide/',
+      'https://nodejs.org/en/docs',
+      'https://vercel.com/docs',
+      'https://firebase.google.com/docs'
+    ];
+
+    // ====== 可変パラメータ ======
+    const LIFE_MS = getCSSms('--life-ms', 2600); // 存在しなければ既定値
+
+    const stage = document.getElementById('stage');
+    const hint = document.getElementById('hint');
+
+    // 初回クリックでヒントを消す
+    let firstShown = false;
+
+    // クリック／タッチの座標取得
+    function getPoint(evt) {
+      const rect = stage.getBoundingClientRect();
+      let x, y;
+      if (evt.touches && evt.touches[0]) {
+        x = evt.touches[0].clientX - rect.left;
+        y = evt.touches[0].clientY - rect.top;
+      } else {
+        x = evt.clientX - rect.left;
+        y = evt.clientY - rect.top;
+      }
+      // 端でのはみ出し対策：少し内側に寄せる（しっぽが見切れないように）
+      const pad = 20;
+      x = Math.max(pad, Math.min(rect.width - pad, x));
+      y = Math.max(pad + 16, Math.min(rect.height - pad, y));
+      return { x, y };
+    }
+
+    // URLを1つランダムで返す
+    function pickURL() {
+      const i = Math.floor(Math.random() * URL_SOURCES.length);
+      return URL_SOURCES[i] || 'https://example.com/';
+    }
+
+    // 短文を1つランダムで返す
+    function pickRandom() {
+      return MESSAGES[Math.floor(Math.random() * MESSAGES.length)];
+    }
+    // === 背景差し替え用ヘルパー ===
+    // 使い方: setBackground('/mini-games/bg-1480x872.png');
+    function setBackground(url){
+      try { document.documentElement.style.setProperty('--bg-url', `url("${url}")`); }
+      catch(e){ console.warn('setBackground failed:', e); }
+    }
+
+    // クエリ文字列で ?bg=... が指定された場合はそれを反映
+    (function applyBgFromQuery(){
+      try {
+        const params = new URLSearchParams(location.search);
+        const bg = params.get('bg');
+        if (bg) setBackground(bg);
+      } catch (e) {
+        console.warn('Failed to parse ?bg param:', e);
+      }
+    })();
+
+    function getCSSms(varName, fallback) {
+      const v = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+      if (!v) return fallback;
+      const n = parseFloat(v);
+      return Number.isFinite(n) ? n : fallback;
+    }
+
+    // 吹き出し生成
+    function spawnBubble({ x, y }, text) {
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      // ネット情報風カードのDOMを構築
+      const msg = (text || pickRandom());
+      bubble.innerHTML = `
+        <div class="bubble__head">
+          <span class="favicon" aria-hidden="true"></span>
+          <span class="url"></span>
+        </div>
+        <div class="bubble__body" aria-live="polite"></div>
+      `;
+      const urlEl = bubble.querySelector('.url');
+      const bodyEl = bubble.querySelector('.bubble__body');
+      urlEl.textContent = pickURL();
+      bodyEl.textContent = msg;
+
+      bubble.style.left = x + 'px';
+      bubble.style.top = y + 'px';
+
+      // ▼ ランダム：幅・しっぽ方向（左右）・上下反転
+      const w = Math.round(200 + Math.random() * 120); // 200〜320px
+      bubble.style.setProperty('--w', w + 'px');
+
+      const hDir = Math.random() < 0.5 ? 'tail-left' : 'tail-right';
+      bubble.classList.add(hDir);
+      if (Math.random() < 0.5) bubble.classList.add('flip-vert');
+      bubble.style.setProperty('--tail-side', hDir === 'tail-left' ? 'left' : 'right');
+
+      // CSSアニメーションの寿命をJSから指定
+      bubble.style.setProperty('--life', LIFE_MS + 'ms');
+
+      stage.appendChild(bubble);
+
+      // ヒント除去（初回のみ）
+      if (!firstShown) {
+        firstShown = true;
+        hint && hint.remove();
+      }
+
+      // CSSアニメーション終了時に自動で削除 + 失敗時の保険
+      const hardKill = setTimeout(() => {
+        if (document.body.contains(bubble)) bubble.remove();
+      }, LIFE_MS + 2000);
+
+      bubble.addEventListener('animationend', (e) => {
+        if (e.animationName === 'life') {
+          clearTimeout(hardKill);
+          bubble.remove();
+        }
+      });
+    }
+
+    // クリック & タッチ対応
+    stage.addEventListener('click', (e) => {
+      spawnBubble(getPoint(e));
+      stage.focus();
+    });
+    stage.addEventListener('touchstart', (e) => {
+      spawnBubble(getPoint(e));
+    }, { passive: true });
+
+    // キーボード（Enter/Space）でも中央に表示（任意）
+    stage.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        const rect = stage.getBoundingClientRect();
+        spawnBubble({ x: rect.width/2, y: rect.height/2 });
+      }
+    });
+
+    // ==============================
+    // 簡易テスト（UIを壊さない範囲での自己診断）
+    // ==============================
+    (function runSelfTests(){
+      try {
+        console.group('%c[SelfTest] bubble','color:#2563eb');
+        // 1) メッセージが非空文字列であること
+        const invalid = MESSAGES.filter(m => typeof m !== 'string' || !m.length);
+        console.assert(invalid.length === 0, '空文字 or 非文字列が含まれています:', invalid);
+
+        // 2) pickURL が有効なURL文字列を返すか
+        const u = pickURL();
+        console.assert(typeof u === 'string' && /:\/\//.test(u), 'pickURL() がURLらしき文字列を返しません', u);
+
+        // 3) CSS寿命が数値として取得できるか
+        const lifeNum = getCSSms('--life-ms', 2600);
+        console.assert(Number.isFinite(lifeNum) && lifeNum > 0, 'CSS寿命が正しく取得できません', lifeNum);
+
+        console.log('All tests executed. Check assertions above.');
+      } catch (err) {
+        console.error('[SelfTest] 失敗:', err);
+      } finally {
+        // 4) バッジ（.badge）が生成されないこと
+        (function(){
+          const tmp = document.createElement('div');
+          tmp.innerHTML = '<div class="bubble__head"><span class="favicon"></span><span class="url"></span></div><div class="bubble__body"></div>';
+          console.assert(!tmp.querySelector('.badge'), '不要な .badge が含まれています');
+        })();
+
+        // 5) lifeキーフレームにscale()が含まれないこと（CSS全体を検査）
+        (function(){
+          const styleEl = document.querySelector('style');
+          const txt = (styleEl && styleEl.textContent) || '';
+          // CSS全体に scale( が含まれなければOK（縮小挙動なし）
+          console.assert(txt.indexOf('scale(') === -1, 'CSS内にscale()が残っています（縮小挙動が発生する恐れ）');
+        })();
+
+        // 6) lifeキーフレームに 70%→100% のフェード定義が含まれること
+        (function(){
+          const styleEl = document.querySelector('style');
+          const txt = (styleEl && styleEl.textContent) || '';
+          const has70 = /@keyframes\s+life[\s\S]*?70%\s*\{\s*opacity\s*:\s*1\s*\}/.test(txt);
+          const has100 = /@keyframes\s+life[\s\S]*?100%\s*\{[\s\S]*?opacity\s*:\s*0/.test(txt);
+          console.assert(has70 && has100, 'lifeキーフレームに 70%→100% のフェード定義が見つかりません');
+        })();
+
+        // 7) 背景画像が none でない（--bg-url が反映されているかの簡易検査）
+        (function(){
+          const bg = getComputedStyle(stage).backgroundImage;
+          console.assert(bg && bg !== 'none', '背景画像が設定されていません（--bg-url を確認）', bg);
+        })();
+
+        console.groupEnd();
+      }
+    })();
+  </script>
+</body>
+</html>

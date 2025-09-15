@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'マンガ見開きページ V21（P5コマ割り追加／P4ズーム#5）',
+  title: 'インタラクティブ漫画（やりたいことは、まだ無い）',
   description: 'Interactive manga reading experience with panel navigation',
 };
 

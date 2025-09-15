@@ -90,29 +90,7 @@
             display: block;
         }
         
-        /* 戻るボタン */
-        .back-btn {
-            position: fixed;
-            top: 20px;
-            right: 40px;
-            color: white;
-            font-size: 40px;
-            font-weight: bold;
-            cursor: pointer;
-            opacity: 0;
-            z-index: 15;
-            transition: opacity 0.3s;
-            pointer-events: none;
-        }
-        
-        .back-btn.visible {
-            opacity: 0.8;
-            pointer-events: auto;
-        }
-        
-        .back-btn:hover {
-            transform: scale(1.1);
-        }
+        /* 戻るボタンは削除 */
     </style>
 </head>
 <body>
@@ -136,8 +114,7 @@
         </div>
     </div>
     
-    <!-- 戻るボタン -->
-    <span class="back-btn" id="backBtn" onclick="zoomOut()">&times;</span>
+    <!-- 戻るボタンは削除 -->
     
     <script>
         let tetrisGame = null;
@@ -412,37 +389,20 @@
         
         // ロード時にテトリスを開始
         function startTetris() {
-            const backBtn = document.getElementById('backBtn');
             const tetrisWrapper = document.getElementById('tetrisWrapper');
             tetrisWrapper.classList.add('active');
             const canvas = document.getElementById('tetris-canvas');
             tetrisGame = new Tetris(canvas);
-            backBtn.classList.add('visible');
         }
         
-        // ズームアウト処理
-        function zoomOut() {
-            const backBtn = document.getElementById('backBtn');
-            const tetrisWrapper = document.getElementById('tetrisWrapper');
-            
-            // テトリスを即座に非表示
-            tetrisWrapper.classList.remove('active');
-            backBtn.classList.remove('visible');
-            
-            // クリーンアップ（アニメーションなしで即戻る）
-            if (tetrisGame) {
-                tetrisGame.destroy();
-                tetrisGame = null;
-            }
-            document.getElementById('gameOver').classList.remove('show');
-            document.getElementById('score').textContent = 0;
+        // 親へ「閉じる」通知（マンガへ戻る＝ズームアウト演出）
+        function requestParentClose() {
+            try { if (window.parent) window.parent.postMessage({ type: 'CLOSE_MINI_GAME' }, '*'); } catch (e) {}
         }
         
-        // ESCキーで戻る
+        // ESCキーで親へクローズ要求
         document.addEventListener('keydown', function(event) {
-            if (event.key === 'Escape') {
-                zoomOut();
-            }
+            if (event.key === 'Escape') requestParentClose();
         });
 
         // 自動起動

@@ -9,32 +9,34 @@ interface AIBotProps {
 
 const AIBot: React.FC<AIBotProps> = ({ isActive, onClose }) => {
   const [userInput, setUserInput] = useState('');
-  const [responseText, setResponseText] = useState('お待たせ！');
+  const [responseText, setResponseText] = useState('お前、この仕事やってて楽しいか？');
   const [isProcessing, setIsProcessing] = useState(false);
   const [showResponse, setShowResponse] = useState(false);
+  const [messageCount, setMessageCount] = useState(0);
 
   useEffect(() => {
     if (isActive) {
       setShowResponse(true);
-      setResponseText('お待たせ！');
+      setResponseText('お前、この仕事やってて楽しいか？');
     } else {
       setShowResponse(false);
       setUserInput('');
       setResponseText('');
+      setMessageCount(0); // Reset message count when closing
     }
   }, [isActive]);
 
-  const generateImageBackground = () => {
-    const cells = [];
-    for (let i = 0; i < 100; i++) {
-      cells.push(<div key={i} className="bg-image-cell" />);
-    }
-    return cells;
-  };
 
   const sendMessage = async () => {
     const message = userInput.trim();
     if (!message) return;
+
+    // Check message limit
+    if (messageCount >= 3) {
+      setResponseText('回答の制限回数に達しました。これ以上質問はできません。');
+      setShowResponse(true);
+      return;
+    }
 
     setIsProcessing(true);
     setShowResponse(false);
@@ -44,12 +46,29 @@ const AIBot: React.FC<AIBotProps> = ({ isActive, onClose }) => {
       setShowResponse(true);
     }, 80);
 
-    // Simulate API response
-    setTimeout(() => {
-      setResponseText(`「${message}」についての回答です。これはデモ版のため、実際のAI応答は実装されていません。`);
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get response');
+      }
+
+      const data = await response.json();
+      setResponseText(data.response);
+      setMessageCount(prevCount => prevCount + 1); // Increment message count
+    } catch (error) {
+      console.error('Error:', error);
+      setResponseText('エラーが発生しました。もう一度お試しください。');
+    } finally {
       setIsProcessing(false);
       setUserInput('');
-    }, 1500);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -61,11 +80,11 @@ const AIBot: React.FC<AIBotProps> = ({ isActive, onClose }) => {
 
   return (
     <>
-      <div className={`zoom-overlay ${isActive ? 'active' : ''}`} id="zoomOverlay" />
       <div className={`ai-bot-wrapper ${isActive ? 'active' : ''}`} id="aiBotWrapper">
         <div className="ai-bot-container">
-          <div className="image-background" id="imageBackground">
-            {generateImageBackground()}
+          <div className="image-background" id="imageBackground" />
+          <div className="message-counter">
+            残り回答回数: {3 - messageCount}回
           </div>
           <div className={`ai-response-area ${showResponse ? 'show' : ''}`} id="aiResponseArea">
             <div className="ai-response-text" id="aiResponseText">
@@ -78,21 +97,21 @@ const AIBot: React.FC<AIBotProps> = ({ isActive, onClose }) => {
                 type="text"
                 className="text-input"
                 id="userInput"
-                placeholder="質問を入力してください…"
+                placeholder={messageCount >= 3 ? "回答制限に達しました" : "上司に回答する…"}
                 autoComplete="off"
                 value={userInput}
                 onChange={(e) => setUserInput(e.target.value)}
                 onKeyPress={handleKeyPress}
-                disabled={isProcessing}
+                disabled={isProcessing || messageCount >= 3}
               />
               <button
                 className="submit-btn"
                 id="submitBtn"
                 type="button"
                 onClick={sendMessage}
-                disabled={isProcessing}
+                disabled={isProcessing || messageCount >= 3}
               >
-                {isProcessing ? '処理中' : '回答'}
+                {messageCount >= 3 ? '制限到達' : isProcessing ? '処理中' : '回答'}
               </button>
             </div>
           </div>

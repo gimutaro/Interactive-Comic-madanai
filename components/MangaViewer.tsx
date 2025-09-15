@@ -8,12 +8,12 @@ const MangaViewer: React.FC = () => {
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [currentPanelIndex, setCurrentPanelIndex] = useState(0);
   const [viewMode, setViewMode] = useState<'page' | 'panel'>('page');
-  const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
   const [loadedImages, setLoadedImages] = useState<Map<string, HTMLImageElement>>(new Map());
   const [isAnimating, setIsAnimating] = useState(false);
+  // requestAnimationFrame の ID を保持（初期値を null に）
   const animationRef = useRef<number | null>(null);
 
   const currentPage = mangaPages[currentPageIndex];
@@ -57,7 +57,7 @@ const MangaViewer: React.FC = () => {
       const pageScale = Math.min(
         canvas.width / 800,
         canvas.height / 1200
-      ) * scale;
+      );
 
       const pageWidth = 800 * pageScale;
       const pageHeight = 1200 * pageScale;
@@ -92,7 +92,7 @@ const MangaViewer: React.FC = () => {
       const panelScale = Math.min(
         canvas.width / currentPanel.width,
         canvas.height / currentPanel.height
-      ) * 0.9 * scale;
+      ) * 0.9;
 
       const panelWidth = currentPanel.width * panelScale;
       const panelHeight = currentPanel.height * panelScale;
@@ -122,7 +122,7 @@ const MangaViewer: React.FC = () => {
       canvas.width / 2,
       canvas.height - 25
     );
-  }, [currentPageIndex, currentPanelIndex, viewMode, scale, offset, loadedImages]);
+  }, [currentPageIndex, currentPanelIndex, viewMode, offset, loadedImages]);
 
   useEffect(() => {
     drawCanvas();
@@ -130,11 +130,18 @@ const MangaViewer: React.FC = () => {
     return () => window.removeEventListener('resize', drawCanvas);
   }, [drawCanvas]);
 
+  // アニメーションフレームのクリーンアップ
+  useEffect(() => {
+    return () => {
+      if (animationRef.current != null) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, []);
+
   const animateTransition = useCallback((
     startOffset: { x: number; y: number },
     endOffset: { x: number; y: number },
-    startScale: number,
-    endScale: number,
     duration: number
   ) => {
     setIsAnimating(true);
@@ -149,7 +156,7 @@ const MangaViewer: React.FC = () => {
         x: startOffset.x + (endOffset.x - startOffset.x) * easeProgress,
         y: startOffset.y + (endOffset.y - startOffset.y) * easeProgress,
       });
-      setScale(startScale + (endScale - startScale) * easeProgress);
+      // scale animation removed
 
       if (progress < 1) {
         animationRef.current = requestAnimationFrame(animate);
@@ -174,7 +181,7 @@ const MangaViewer: React.FC = () => {
     if (y > canvas.height - 60) return;
 
     if (viewMode === 'page') {
-      const pageScale = Math.min(canvas.width / 800, canvas.height / 1200) * scale;
+      const pageScale = Math.min(canvas.width / 800, canvas.height / 1200);
       const pageWidth = 800 * pageScale;
       const pageHeight = 1200 * pageScale;
       const pageX = (canvas.width - pageWidth) / 2 + offset.x;
@@ -191,7 +198,7 @@ const MangaViewer: React.FC = () => {
             y >= panelY && y <= panelY + panelHeight) {
           setCurrentPanelIndex(i);
           setViewMode('panel');
-          animateTransition(offset, { x: 0, y: 0 }, scale, 1, 300);
+          animateTransition(offset, { x: 0, y: 0 }, 300);
           return;
         }
       }
@@ -202,10 +209,10 @@ const MangaViewer: React.FC = () => {
         setCurrentPageIndex(currentPageIndex + 1);
         setCurrentPanelIndex(0);
         setViewMode('page');
-        animateTransition({ x: 0, y: 0 }, { x: 0, y: 0 }, 1, 1, 300);
+        animateTransition({ x: 0, y: 0 }, { x: 0, y: 0 }, 300);
       }
     }
-  }, [isDragging, isAnimating, viewMode, scale, offset, currentPageIndex, currentPanelIndex, animateTransition]);
+  }, [isDragging, isAnimating, viewMode, offset, currentPageIndex, currentPanelIndex, animateTransition]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     setIsDragging(true);
@@ -230,11 +237,7 @@ const MangaViewer: React.FC = () => {
     setIsDragging(false);
   }, []);
 
-  const handleWheel = useCallback((e: React.WheelEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    const scaleFactor = e.deltaY > 0 ? 0.9 : 1.1;
-    setScale(prev => Math.max(0.5, Math.min(3, prev * scaleFactor)));
-  }, []);
+  // Wheel zoom disabled
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     switch (e.key) {
@@ -290,7 +293,7 @@ const MangaViewer: React.FC = () => {
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
-      onWheel={handleWheel}
+      // onWheel removed (zoom disabled)
       style={{
         cursor: isDragging ? 'grabbing' : 'grab',
         touchAction: 'none'
