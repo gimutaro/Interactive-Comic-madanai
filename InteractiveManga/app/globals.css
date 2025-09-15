@@ -52,8 +52,8 @@ body { font-family: 'Helvetica Neue', Arial, 'Hiragino Sans', 'Hiragino Kaku Got
 /* 外側にも柔らかいにじみ効果を少しだけ追加（ドロップシャドウ） */
 .launcher:hover,
 .launcher:focus-visible {
-  /* 黄色系の外側グロー（さらに控えめ） */
-  filter: drop-shadow(0 0 10px rgba(255,213,0,.20)) drop-shadow(0 0 24px rgba(255,213,0,.12));
+  /* 黄色系の外側グロー（濃くした） */
+  filter: drop-shadow(0 0 12px rgba(255,213,0,.35)) drop-shadow(0 0 28px rgba(255,213,0,.22));
   /* 呼吸するグローを付与（弱め） */
   animation: glow-breathe 2.2s ease-in-out infinite;
 }
@@ -84,20 +84,20 @@ body { font-family: 'Helvetica Neue', Arial, 'Hiragino Sans', 'Hiragino Kaku Got
   0% {
     box-shadow:
       0 6px 14px rgba(0,0,0,.18),
-      0 0 6px rgba(255,214,0,.16),
-      0 0 14px rgba(255,214,0,.10);
+      0 0 8px rgba(255,214,0,.28),
+      0 0 18px rgba(255,214,0,.18);
   }
   40% {
     box-shadow:
       0 16px 28px rgba(0,0,0,.3),
-      0 0 24px rgba(255,214,0,.28),
-      0 0 48px rgba(255,214,0,.16);
+      0 0 30px rgba(255,214,0,.45),
+      0 0 56px rgba(255,214,0,.28);
   }
   100% {
     box-shadow:
       0 12px 24px rgba(0,0,0,.25),
-      0 0 14px rgba(255,214,0,.20),
-      0 0 36px rgba(255,214,0,.12);
+      0 0 18px rgba(255,214,0,.35),
+      0 0 42px rgba(255,214,0,.22);
   }
 }
 
@@ -105,13 +105,13 @@ body { font-family: 'Helvetica Neue', Arial, 'Hiragino Sans', 'Hiragino Kaku Got
 @keyframes glow-breathe {
   0%, 100% {
     box-shadow:
-      0 0 18px rgba(255, 213, 0, .26),
-      0 0 40px rgba(255, 213, 0, .16);
+      0 0 22px rgba(255, 213, 0, .40),
+      0 0 48px rgba(255, 213, 0, .28);
   }
   50% {
     box-shadow:
-      0 0 36px rgba(255, 213, 0, .45),
-      0 0 80px rgba(255, 213, 0, .28);
+      0 0 42px rgba(255, 213, 0, .60),
+      0 0 90px rgba(255, 213, 0, .40);
   }
 }
 
@@ -235,6 +235,8 @@ body { font-family: 'Helvetica Neue', Arial, 'Hiragino Sans', 'Hiragino Kaku Got
 .nav-area { position: absolute; top:0; height:100%; width:50px; cursor:pointer; z-index:20; transition: background-color .3s; }
 .nav-area.prev { right:0; }
 .nav-area.next { left:0; }
+.nav-area:hover { background: linear-gradient(to right, rgba(200, 180, 150, 0.45), transparent); }
+.nav-area.prev:hover { background: linear-gradient(to left, rgba(200, 180, 150, 0.45), transparent); }
 .nav-area::after { content:''; position:absolute; top:50%; transform:translateY(-50%); width:0; height:0; border-style: solid; opacity:0; transition: opacity .3s; }
 .nav-area.prev::after { right:15px; border-width:15px 0 15px 20px; border-color: transparent transparent transparent #333; }
 .nav-area.next::after { left:15px; border-width:15px 20px 15px 0; border-color: transparent #333 transparent transparent; }
