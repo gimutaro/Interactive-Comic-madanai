@@ -454,7 +454,10 @@
 
     function checkGrab(){ const p=crane.position; let closest=null, dist=Infinity; prizes.forEach(pr=>{ const d=Math.hypot(pr.position.x - p.x, pr.position.z - p.z); if(d<.5 && d<dist){ dist=d; closest=pr; } }); if(closest && Math.random() > 0.1){ isHoldingPrize = closest; } }
 
-    function dropPrize(){ if(isHoldingPrize){ new TWEEN.Tween(isHoldingPrize.position).to({ y:-3.5 }, 500).easing(TWEEN.Easing.Bounce.Out).start().onComplete(()=>{ const data={ type:isHoldingPrize.prizeType.type, name:isHoldingPrize.prizeType.name, color:isHoldingPrize.prizeType.color, count:1 }; collectedPrizes.push(data); scene.remove(isHoldingPrize); prizes = prizes.filter(p=>p!==isHoldingPrize); prizeCount++; showPrizeModal(isHoldingPrize.prizeType.name); isHoldingPrize=null; }); }
+    function dropPrize(){ if(isHoldingPrize){ new TWEEN.Tween(isHoldingPrize.position).to({ y:-3.5 }, 500).easing(TWEEN.Easing.Bounce.Out).start().onComplete(()=>{ const data={ type:isHoldingPrize.prizeType.type, name:isHoldingPrize.prizeType.name, color:isHoldingPrize.prizeType.color, count:1 }; collectedPrizes.push(data); scene.remove(isHoldingPrize); prizes = prizes.filter(p=>p!==isHoldingPrize); prizeCount++; showPrizeModal(isHoldingPrize.prizeType.name); isHoldingPrize=null;
+      // 親ウィンドウへ景品獲得を通知
+      try { window.parent.postMessage({ type: 'UFO_PRIZE_COLLECTED', count: collectedPrizes.length }, window.location.origin); } catch(_){}
+      }); }
       new TWEEN.Tween(leftArm.rotation).to({ z:-.5 }, 500).start(); new TWEEN.Tween(rightArm.rotation).to({ z:.5 }, 500).start().onComplete(()=>{ new TWEEN.Tween(crane.position).to({ x:0, z:0 }, 1000).onUpdate(()=>{ if(craneShadow){ craneShadow.position.x = crane.position.x; craneShadow.position.z = crane.position.z; } }).start().onComplete(()=>{ craneState='idle'; }); }); }
 
     function showPrizeModal(name){ document.getElementById('modal').style.display='block'; createFireworks(); }

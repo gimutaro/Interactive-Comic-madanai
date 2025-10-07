@@ -136,6 +136,7 @@
                 this.currentY = 0;
                 this.dropTime = 0;
                 this.lastTime = 0;
+                this.hasNotifiedScore = false; // スコア300達成通知フラグ
                 
                 // テトロミノの形状
                 this.pieces = [
@@ -273,6 +274,17 @@
                 if (lines > 0) {
                     this.score += lines * 100;
                     document.getElementById('score').textContent = this.score;
+
+                    // スコアが300以上になったら親ウィンドウに通知
+                    if (this.score >= 300 && !this.hasNotifiedScore) {
+                        this.hasNotifiedScore = true;
+                        try {
+                            window.parent.postMessage({
+                                type: 'TETRIS_SCORE_ACHIEVED',
+                                score: this.score
+                            }, window.location.origin);
+                        } catch (e) {}
+                    }
                 }
             }
             
@@ -380,6 +392,7 @@
                 this.score = 0;
                 this.gameOver = false;
                 this.dropTime = 0;
+                this.hasNotifiedScore = false; // 通知フラグをリセット
                 document.getElementById('score').textContent = 0;
                 document.getElementById('gameOver').classList.remove('show');
                 this.spawnPiece();

@@ -13,7 +13,17 @@ const MangaBook: React.FC = () => {
   const [isMiniGameFullScreen, setIsMiniGameFullScreen] = useState(false);
   const [isPageSoundOn, setIsPageSoundOn] = useState(true);
   const cleanupTimerRef = useRef<number | null>(null);
+  const prizeRevealTimerRef = useRef<number | null>(null);
+  const prizeFreshResetTimerRef = useRef<number | null>(null);
   const totalSpreads = 7;
+
+  // UFOキャッチャーの景品獲得状態
+  const [hasUfoPrize, setHasUfoPrize] = useState(false);
+  const [pendingUfoPrize, setPendingUfoPrize] = useState(false);
+  const [isFreshUfoPrize, setIsFreshUfoPrize] = useState(false);
+
+  // テトリスのスコア達成状態
+  const [hasTetrisScore, setHasTetrisScore] = useState(false);
 
   // Zoom animation state
   const cameraRef = useRef<HTMLDivElement>(null);
@@ -41,6 +51,11 @@ const MangaBook: React.FC = () => {
 
   const nextSpread = () => {
     if (isAIBotOpen || isMiniGameOpen || isZoomingIn || isZoomingOut) return;
+    // 見開き5（ページ7）から次に進む場合、テトリススコア300以上が必要
+    if (currentSpread === 5 && !hasTetrisScore) {
+      // スコア未達成の場合は進めない
+      return;
+    }
     if (currentSpread < totalSpreads) showSpread(currentSpread + 1);
   };
 
@@ -94,6 +109,32 @@ const MangaBook: React.FC = () => {
       if (e && (e as any).data && (e as any).data.type === 'CLOSE_MINI_GAME') {
         closeActiveUI();
       }
+      // UFOキャッチャーからの景品獲得通知
+      if (e && (e as any).data && (e as any).data.type === 'UFO_PRIZE_COLLECTED') {
+        const count = (e as any).data.count || 0;
+        if (count >= 1) {
+          // 現在の状態を確認してから処理
+          setPendingUfoPrize(prevPending => {
+            if (!prevPending) {
+              // ズームアウト完了後に表示するためのフラグを立てる
+              return true;
+            }
+            return prevPending;
+          });
+        }
+      }
+      // テトリスからのスコア達成通知
+      if (e && (e as any).data && (e as any).data.type === 'TETRIS_SCORE_ACHIEVED') {
+        setHasTetrisScore(prevScore => {
+          if (!prevScore) {
+            try {
+              localStorage.setItem('hasTetrisScore', 'true');
+            } catch (_) {}
+            return true;
+          }
+          return prevScore;
+        });
+      }
     };
 
     window.addEventListener('message', handleMessage);
@@ -102,6 +143,14 @@ const MangaBook: React.FC = () => {
       // Clean up any pending timers on unmount
       if (cleanupTimerRef.current) {
         window.clearTimeout(cleanupTimerRef.current);
+      }
+      if (prizeRevealTimerRef.current) {
+        window.clearTimeout(prizeRevealTimerRef.current);
+        prizeRevealTimerRef.current = null;
+      }
+      if (prizeFreshResetTimerRef.current) {
+        window.clearTimeout(prizeFreshResetTimerRef.current);
+        prizeFreshResetTimerRef.current = null;
       }
     };
   }, []);
@@ -130,10 +179,75 @@ const MangaBook: React.FC = () => {
     } catch (_) {}
   }, []);
 
+  // UFOキャッチャーの景品獲得状態を復元
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('hasUfoPrize');
+      if (saved === 'true') setHasUfoPrize(true);
+    } catch (_) {}
+  }, []);
+
+  // テトリスのスコア達成状態を復元
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('hasTetrisScore');
+      if (saved === 'true') setHasTetrisScore(true);
+    } catch (_) {}
+  }, []);
+
   // Persist preference on change
   useEffect(() => {
     try { localStorage.setItem('pageSoundOn', isPageSoundOn ? '1' : '0'); } catch (_) {}
   }, [isPageSoundOn]);
+
+  // ズームアウト完了後に景品獲得状態を反映（一拍置いてから表示）
+  useEffect(() => {
+    if (!isZoomingOut && !isZoomed && pendingUfoPrize && !hasUfoPrize) {
+      if (prizeRevealTimerRef.current) {
+        window.clearTimeout(prizeRevealTimerRef.current);
+      }
+      prizeRevealTimerRef.current = window.setTimeout(() => {
+        prizeRevealTimerRef.current = null;
+        setIsFreshUfoPrize(true);
+        setHasUfoPrize(true);
+        setPendingUfoPrize(false);
+        try {
+          localStorage.setItem('hasUfoPrize', 'true');
+        } catch (_) {}
+
+        if (prizeFreshResetTimerRef.current) {
+          window.clearTimeout(prizeFreshResetTimerRef.current);
+        }
+        prizeFreshResetTimerRef.current = window.setTimeout(() => {
+          setIsFreshUfoPrize(false);
+          prizeFreshResetTimerRef.current = null;
+        }, 1800);
+      }, 600);
+    }
+    
+    // Single cleanup function that handles both timers
+    return () => {
+      if (prizeRevealTimerRef.current) {
+        window.clearTimeout(prizeRevealTimerRef.current);
+        prizeRevealTimerRef.current = null;
+      }
+      if (prizeFreshResetTimerRef.current) {
+        window.clearTimeout(prizeFreshResetTimerRef.current);
+        prizeFreshResetTimerRef.current = null;
+      }
+    };
+  }, [isZoomingOut, isZoomed, pendingUfoPrize, hasUfoPrize]);
+
+  // ページを離れたタイミングで浮かび上がりアニメーションを確実に解除
+  useEffect(() => {
+    if (currentSpread !== 4 && isFreshUfoPrize) {
+      if (prizeFreshResetTimerRef.current) {
+        window.clearTimeout(prizeFreshResetTimerRef.current);
+        prizeFreshResetTimerRef.current = null;
+      }
+      setIsFreshUfoPrize(false);
+    }
+  }, [currentSpread, isFreshUfoPrize]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -212,9 +326,14 @@ const MangaBook: React.FC = () => {
     komaNum: number;
     assetName: string;
     className?: string;
-  }) => (
+  }) => {
+    // ページ4のコマ3とコマ4に景品獲得状態に応じてクラスを追加
+    const isPrizeUnlocked = pageNum === 4 && (komaNum === 3 || komaNum === 4) && hasUfoPrize;
+    const finalClassName = `koma ${className}${isPrizeUnlocked ? ' prize-unlocked' : ''}${isPrizeUnlocked && isFreshUfoPrize ? ' prize-fresh' : ''}`;
+
+    return (
     <div
-      className={`koma ${className}`}
+      className={finalClassName}
       data-koma={komaNum}
       data-asset={assetName}
       onClick={(e) => {
@@ -279,7 +398,8 @@ const MangaBook: React.FC = () => {
         decoding="async"
       />
     </div>
-  );
+    );
+  };
 
   return (
     <>
@@ -403,7 +523,16 @@ const MangaBook: React.FC = () => {
                 <KomaPanel pageNum={7} komaNum={5} assetName="p7_koma5" className="k5 launcher" />
               </div>
             </div>
-            <div className="nav-area next" onClick={nextSpread} />
+            <div
+              className={`nav-area next${currentSpread === 5 && !hasTetrisScore ? ' tetris-locked' : ''}`}
+              onClick={nextSpread}
+            >
+              {currentSpread === 5 && !hasTetrisScore && (
+                <div className="tetris-requirement-tooltip">
+                  Tetris Over 300 point
+                </div>
+              )}
+            </div>
           </div>
           <div className="page right">
             <div className="manga-page layout-p6" data-page="6">
