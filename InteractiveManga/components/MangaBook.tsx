@@ -112,19 +112,28 @@ const MangaBook: React.FC = () => {
       // UFOキャッチャーからの景品獲得通知
       if (e && (e as any).data && (e as any).data.type === 'UFO_PRIZE_COLLECTED') {
         const count = (e as any).data.count || 0;
-        if (count >= 1 && !hasUfoPrize) {
-          // ズームアウト完了後に表示するためのフラグを立てる
-          setPendingUfoPrize(true);
+        if (count >= 1) {
+          // 現在の状態を確認してから処理
+          setPendingUfoPrize(prevPending => {
+            if (!prevPending) {
+              // ズームアウト完了後に表示するためのフラグを立てる
+              return true;
+            }
+            return prevPending;
+          });
         }
       }
       // テトリスからのスコア達成通知
       if (e && (e as any).data && (e as any).data.type === 'TETRIS_SCORE_ACHIEVED') {
-        if (!hasTetrisScore) {
-          setHasTetrisScore(true);
-          try {
-            localStorage.setItem('hasTetrisScore', 'true');
-          } catch (_) {}
-        }
+        setHasTetrisScore(prevScore => {
+          if (!prevScore) {
+            try {
+              localStorage.setItem('hasTetrisScore', 'true');
+            } catch (_) {}
+            return true;
+          }
+          return prevScore;
+        });
       }
     };
 
@@ -144,7 +153,7 @@ const MangaBook: React.FC = () => {
         prizeFreshResetTimerRef.current = null;
       }
     };
-  }, [hasUfoPrize, hasTetrisScore]);
+  }, []);
 
   // Prepare page-turn audio element
   useEffect(() => {
@@ -214,17 +223,17 @@ const MangaBook: React.FC = () => {
           prizeFreshResetTimerRef.current = null;
         }, 1800);
       }, 600);
-      return () => {
-        if (prizeRevealTimerRef.current) {
-          window.clearTimeout(prizeRevealTimerRef.current);
-          prizeRevealTimerRef.current = null;
-        }
-      };
     }
+    
+    // Single cleanup function that handles both timers
     return () => {
       if (prizeRevealTimerRef.current) {
         window.clearTimeout(prizeRevealTimerRef.current);
         prizeRevealTimerRef.current = null;
+      }
+      if (prizeFreshResetTimerRef.current) {
+        window.clearTimeout(prizeFreshResetTimerRef.current);
+        prizeFreshResetTimerRef.current = null;
       }
     };
   }, [isZoomingOut, isZoomed, pendingUfoPrize, hasUfoPrize]);
