@@ -318,4 +318,99 @@ body { font-family: 'Helvetica Neue', Arial, 'Hiragino Sans', 'Hiragino Kaku Got
 }
 /* hover効果を削除 */
 
+/* ===== 景品獲得によるコマ画像表示制御 ===== */
+/* ページ4のコマ3とコマ4の画像を初期状態で非表示 */
+[data-page="4"] .koma[data-koma="3"] img.koma-img-el,
+[data-page="4"] .koma[data-koma="4"] img.koma-img-el {
+  opacity: 0;
+  visibility: hidden;
+}
+
+/* 景品獲得後に表示されるクラス */
+[data-page="4"] .koma.prize-unlocked img.koma-img-el {
+  visibility: visible;
+}
+
+[data-page="4"] .koma.prize-unlocked.prize-fresh img.koma-img-el {
+  animation: prizeUnlockFadeIn 1.4s ease-out forwards;
+  transform-origin: center;
+}
+
+[data-page="4"] .koma.prize-unlocked:not(.prize-fresh) img.koma-img-el {
+  opacity: 1;
+}
+
+/* フェードインアニメーション */
+@keyframes prizeUnlockFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ===== テトリススコア制限ツールチップ ===== */
+.nav-area.tetris-locked {
+  cursor: not-allowed;
+}
+
+.tetris-requirement-tooltip {
+  position: absolute;
+  left: 60px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #fffcf9;
+  color: #222;
+  padding: 14px 24px;
+  border-radius: 6px;
+  border: 3px solid #000;
+  font-size: 16px;
+  font-weight: 800;
+  text-align: center;
+  white-space: nowrap;
+  box-shadow:
+    4px 4px 0px rgba(0, 0, 0, 0.3),
+    0 2px 8px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  z-index: 22;
+  letter-spacing: 0.03em;
+}
+
+/* 吹き出しの三角形 */
+.tetris-requirement-tooltip::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 10px 12px 10px 0;
+  border-color: transparent #000 transparent transparent;
+}
+
+.tetris-requirement-tooltip::after {
+  content: '';
+  position: absolute;
+  left: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 8px 10px 8px 0;
+  border-color: transparent #fffcf9 transparent transparent;
+}
+
+.nav-area.tetris-locked:hover .tetris-requirement-tooltip {
+  opacity: 1;
+  transform: translateY(-50%) translateX(8px);
+}
+
 /* 余白 */
