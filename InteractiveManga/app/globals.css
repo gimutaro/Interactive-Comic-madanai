@@ -247,6 +247,13 @@ body { font-family: 'Helvetica Neue', Arial, 'Hiragino Sans', 'Hiragino Kaku Got
 .ai-bot-wrapper.active { opacity: 1; visibility: visible; pointer-events: auto; }
 
 .ai-bot-container { width: 100%; height: 100%; position: relative; background-image: url('/images/AIbot.png'); background-size: contain; background-position: center; background-repeat: no-repeat; }
+
+@media (max-width: 768px) {
+  .ai-bot-container {
+    background-size: auto 62%;
+    background-position: center 32%;
+  }
+}
 .image-background { position: absolute; inset: 0; pointer-events: none; }
 .message-counter { position: absolute; top: 20px; left: 20px; background: rgba(255, 255, 255, 0.95); color: #333; padding: 10px 20px; border-radius: 20px; font-size: 18px; font-weight: bold; z-index: 15; border: 2px solid rgba(0, 0, 0, 0.1); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); }
 
@@ -265,6 +272,112 @@ body { font-family: 'Helvetica Neue', Arial, 'Hiragino Sans', 'Hiragino Kaku Got
 
 .back-btn { position: fixed; top: 20px; right: 40px; color: white; font-size: 40px; font-weight: bold; cursor: pointer; opacity: 0; z-index: 45; transition: opacity .3s; pointer-events: none; background: rgba(0,0,0,.3); width: 50px; height: 50px; border-radius: 50%; display:flex; align-items:center; justify-content:center; }
 .back-btn.visible { opacity: .85; pointer-events: auto; }
+
+/* ===== ダイアログ式の会話ウィンドウ ===== */
+.ai-dialogue-box {
+  position: absolute;
+  left: 50%;
+  bottom: 5%;
+  transform: translateX(-50%);
+  width: min(800px, 92%);
+  background: linear-gradient(180deg, rgba(20,20,30,.94), rgba(20,20,30,.88));
+  color: #fff;
+  border: 2px solid rgba(255,255,255,.18);
+  border-radius: 14px;
+  padding: 18px 22px 22px;
+  box-shadow: 0 18px 40px rgba(0,0,0,.45);
+  z-index: 12;
+  cursor: pointer;
+  user-select: none;
+  animation: aiDialogueFadeIn .25s ease-out;
+}
+
+@keyframes aiDialogueFadeIn {
+  from { opacity: 0; transform: translate(-50%, 12px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.ai-dialogue-speaker {
+  display: inline-block;
+  padding: 4px 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  border-radius: 999px;
+  margin-bottom: 12px;
+}
+
+.ai-dialogue-text {
+  font-size: 19px;
+  line-height: 1.7;
+  font-weight: 500;
+  letter-spacing: .02em;
+  min-height: 3.4em;
+  white-space: pre-wrap;
+}
+
+.ai-dialogue-next {
+  margin-top: 10px;
+  text-align: right;
+  font-size: 13px;
+  color: rgba(255,255,255,.65);
+  animation: aiDialogueBlink 1.6s ease-in-out infinite;
+}
+
+@keyframes aiDialogueBlink {
+  0%, 100% { opacity: .5; }
+  50% { opacity: 1; }
+}
+
+.ai-choice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  cursor: default;
+  margin-top: 4px;
+}
+
+.ai-choice-prompt {
+  font-size: 14px;
+  color: rgba(255,255,255,.7);
+  margin-bottom: 4px;
+}
+
+.ai-choice-btn {
+  width: 100%;
+  text-align: left;
+  padding: 14px 18px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(255,255,255,.08);
+  border: 2px solid rgba(255,255,255,.22);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background .2s, border-color .2s, transform .12s;
+}
+
+.ai-choice-btn:hover,
+.ai-choice-btn:focus-visible {
+  background: rgba(255,255,255,.16);
+  border-color: rgba(255,255,255,.45);
+  outline: none;
+}
+
+.ai-choice-btn:active {
+  transform: translateY(1px);
+}
+
+@media (max-width: 768px) {
+  .ai-dialogue-box {
+    padding: 14px 16px 18px;
+    bottom: 4%;
+  }
+  .ai-dialogue-text { font-size: 17px; }
+  .ai-choice-btn { font-size: 15px; padding: 12px 14px; }
+}
 /* hover効果を削除 */
 
 /* ===== サウンドトグル ===== */
@@ -326,6 +439,39 @@ body { font-family: 'Helvetica Neue', Arial, 'Hiragino Sans', 'Hiragino Kaku Got
   visibility: hidden;
 }
 
+/* 未獲得時：「？」プレースホルダを表示してギミックを示唆 */
+[data-page="4"] .koma[data-koma="3"]:not(.prize-unlocked),
+[data-page="4"] .koma[data-koma="4"]:not(.prize-unlocked) {
+  background: repeating-linear-gradient(
+    45deg,
+    #f4ede0,
+    #f4ede0 10px,
+    #e8dec9 10px,
+    #e8dec9 20px
+  );
+}
+
+[data-page="4"] .koma[data-koma="3"]:not(.prize-unlocked)::after,
+[data-page="4"] .koma[data-koma="4"]:not(.prize-unlocked)::after {
+  content: '?';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(40px, 12vw, 80px);
+  font-weight: 900;
+  color: rgba(0, 0, 0, .28);
+  font-family: 'Helvetica Neue', Arial, sans-serif;
+  animation: prizePlaceholderFloat 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes prizePlaceholderFloat {
+  0%, 100% { transform: translateY(0); opacity: .55; }
+  50% { transform: translateY(-4px); opacity: 1; }
+}
+
 /* 景品獲得後に表示されるクラス */
 [data-page="4"] .koma.prize-unlocked img.koma-img-el {
   visibility: visible;
@@ -353,7 +499,8 @@ body { font-family: 'Helvetica Neue', Arial, 'Hiragino Sans', 'Hiragino Kaku Got
 }
 
 /* ===== テトリススコア制限ツールチップ ===== */
-.nav-area.tetris-locked {
+.nav-area.tetris-locked,
+.nav-area.aibot-locked {
   cursor: not-allowed;
 }
 
@@ -408,9 +555,179 @@ body { font-family: 'Helvetica Neue', Arial, 'Hiragino Sans', 'Hiragino Kaku Got
   border-color: transparent #fffcf9 transparent transparent;
 }
 
-.nav-area.tetris-locked:hover .tetris-requirement-tooltip {
+.nav-area.tetris-locked:hover .tetris-requirement-tooltip,
+.nav-area.aibot-locked:hover .tetris-requirement-tooltip {
   opacity: 1;
   transform: translateY(-50%) translateX(8px);
+}
+
+/* ===== Webtoon（モバイル縦読み）===== */
+@media (max-width: 768px) {
+  body {
+    display: block;
+    align-items: stretch;
+    justify-content: flex-start;
+    overflow-x: hidden;
+    overflow-y: auto;
+    background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+  }
+}
+
+.webtoon-camera {
+  width: 100%;
+  min-height: 100vh;
+  display: block;
+  position: relative;
+  transform-origin: var(--zoom-origin-x) var(--zoom-origin-y);
+}
+
+.webtoon-container {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 16px 12px 96px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.webtoon-cover {
+  width: 100%;
+  background: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .45);
+}
+
+.webtoon-cover-image {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.webtoon-page {
+  width: 100%;
+  aspect-ratio: 520 / 690;
+  background: #fffcf9;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .45);
+  position: relative;
+}
+
+.webtoon-page .manga-page {
+  border-radius: 0;
+}
+
+@media (max-width: 768px) {
+  .webtoon-page .manga-page {
+    padding: 12px;
+    border-width: 2px;
+  }
+  .webtoon-page .koma {
+    border-width: 2px;
+  }
+}
+
+.webtoon-locked-section {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  position: relative;
+}
+
+.webtoon-locked-section.is-locked .webtoon-page,
+.webtoon-locked-section.is-locked .webtoon-cover {
+  filter: blur(6px) brightness(.55);
+  pointer-events: none;
+  user-select: none;
+}
+
+.webtoon-lock-gate {
+  position: sticky;
+  top: 28vh;
+  z-index: 25;
+  display: flex;
+  justify-content: center;
+  padding: 0 12px;
+  pointer-events: none;
+  margin-top: -32px;
+  margin-bottom: -32px;
+}
+
+.webtoon-lock-card {
+  background: #fffcf9;
+  border: 3px solid #000;
+  border-radius: 12px;
+  padding: 18px 22px;
+  box-shadow: 6px 6px 0 rgba(0, 0, 0, .35);
+  pointer-events: auto;
+  max-width: 360px;
+  text-align: center;
+}
+
+.webtoon-lock-title {
+  font-size: 18px;
+  font-weight: 800;
+  margin-bottom: 8px;
+  color: #222;
+  letter-spacing: .02em;
+}
+
+.webtoon-lock-desc {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #444;
+}
+
+.webtoon-lock-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 88px;
+  transform: translateX(-50%);
+  background: rgba(20, 20, 30, .92);
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  z-index: 46;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
+  pointer-events: none;
+  animation: webtoonLockToastFade .3s ease-out;
+}
+
+@keyframes webtoonLockToastFade {
+  from { opacity: 0; transform: translate(-50%, 8px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* モバイル縦読みでは launcher コマを常時グロー */
+@media (max-width: 768px) {
+  .webtoon-page .koma.launcher {
+    filter: drop-shadow(0 0 10px rgba(255, 213, 0, .35))
+            drop-shadow(0 0 24px rgba(255, 213, 0, .22));
+    animation: glow-breathe 2.4s ease-in-out infinite;
+  }
+}
+
+@media (max-width: 768px) and (prefers-reduced-motion: reduce) {
+  .webtoon-page .koma.launcher {
+    animation: none;
+  }
+}
+
+.webtoon-camera.zooming-in { animation: webtoonZoomIn .7s ease-out forwards; }
+.webtoon-camera.zooming-out { animation: webtoonZoomOut .7s ease-out forwards; }
+
+@keyframes webtoonZoomIn {
+  0% { transform: scale(1) translateZ(0); }
+  100% { transform: scale(10) translateZ(0); }
+}
+
+@keyframes webtoonZoomOut {
+  0% { transform: scale(10) translateZ(0); }
+  100% { transform: scale(1) translateZ(0); }
 }
 
 /* 余白 */
