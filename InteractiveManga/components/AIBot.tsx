@@ -1,126 +1,102 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { buildDialogue, ChoiceId } from '@/lib/aiBotDialogue';
 
 interface AIBotProps {
   isActive: boolean;
   onClose: () => void;
+  onComplete?: () => void;
 }
 
-const AIBot: React.FC<AIBotProps> = ({ isActive, onClose }) => {
-  const [userInput, setUserInput] = useState('');
-  const [responseText, setResponseText] = useState('お前、この仕事やってて楽しいか？');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [showResponse, setShowResponse] = useState(false);
-  const [messageCount, setMessageCount] = useState(0);
+const AIBot: React.FC<AIBotProps> = ({ isActive, onClose, onComplete }) => {
+  const [stepIndex, setStepIndex] = useState(0);
+  const [choice, setChoice] = useState<ChoiceId | null>(null);
 
   useEffect(() => {
     if (isActive) {
-      setShowResponse(true);
-      setResponseText('お前、この仕事やってて楽しいか？');
-    } else {
-      setShowResponse(false);
-      setUserInput('');
-      setResponseText('');
-      setMessageCount(0); // Reset message count when closing
+      setStepIndex(0);
+      setChoice(null);
     }
   }, [isActive]);
 
+  const steps = useMemo(() => buildDialogue(choice), [choice]);
+  const currentStep = steps[stepIndex];
+  const isFinished = !currentStep;
 
-  const sendMessage = async () => {
-    const message = userInput.trim();
-    if (!message) return;
-
-    // Check message limit
-    if (messageCount >= 3) {
-      setResponseText('回答の制限回数に達しました。これ以上質問はできません。');
-      setShowResponse(true);
-      return;
+  useEffect(() => {
+    if (isActive && isFinished) {
+      onComplete?.();
+      onClose();
     }
+  }, [isActive, isFinished, onComplete, onClose]);
 
-    setIsProcessing(true);
-    setShowResponse(false);
-
-    setTimeout(() => {
-      setResponseText('考え中…');
-      setShowResponse(true);
-    }, 80);
-
-    try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to get response');
-      }
-
-      const data = await response.json();
-      setResponseText(data.response);
-      setMessageCount(prevCount => prevCount + 1); // Increment message count
-    } catch (error) {
-      console.error('Error:', error);
-      setResponseText('エラーが発生しました。もう一度お試しください。');
-    } finally {
-      setIsProcessing(false);
-      setUserInput('');
+  const advance = useCallback(() => {
+    if (isFinished) return;
+    if (currentStep.kind === 'message') {
+      setStepIndex((prev) => prev + 1);
     }
-  };
+  }, [currentStep, isFinished]);
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-  };
+  const selectChoice = useCallback((id: ChoiceId) => {
+    setChoice(id);
+    setStepIndex((prev) => prev + 1);
+  }, []);
+
+  const handleBoxClick = useCallback(() => {
+    if (currentStep?.kind === 'message' || isFinished) advance();
+  }, [currentStep, isFinished, advance]);
 
   return (
     <>
-      <div className={`ai-bot-wrapper ${isActive ? 'active' : ''}`} id="aiBotWrapper">
+      <div className={`ai-bot-wrapper ${isActive ? 'active' : ''}`}>
         <div className="ai-bot-container">
-          <div className="image-background" id="imageBackground" />
-          <div className="message-counter">
-            残り回答回数: {3 - messageCount}回
-          </div>
-          <div className={`ai-response-area ${showResponse ? 'show' : ''}`} id="aiResponseArea">
-            <div className="ai-response-text" id="aiResponseText">
-              {responseText}
-            </div>
-          </div>
-          <div className="input-area">
-            <div className="input-container">
-              <input
-                type="text"
-                className="text-input"
-                id="userInput"
-                placeholder={messageCount >= 3 ? "回答制限に達しました" : "上司に回答する…"}
-                autoComplete="off"
-                value={userInput}
-                onChange={(e) => setUserInput(e.target.value)}
-                onKeyPress={handleKeyPress}
-                disabled={isProcessing || messageCount >= 3}
-              />
-              <button
-                className="submit-btn"
-                id="submitBtn"
-                type="button"
-                onClick={sendMessage}
-                disabled={isProcessing || messageCount >= 3}
+          <div className="image-background" />
+
+          <div
+            className="ai-dialogue-box"
+            onClick={handleBoxClick}
+            role="dialog"
+            aria-label="営業部長との会話"
+          >
+            <div className="ai-dialogue-speaker">営業部長</div>
+
+            {currentStep?.kind === 'message' && (
+              <>
+                <div className="ai-dialogue-text">{currentStep.text}</div>
+                <div className="ai-dialogue-next" aria-hidden="true">
+                  ▼ タップで次へ
+                </div>
+              </>
+            )}
+
+            {currentStep?.kind === 'choice' && (
+              <div
+                className="ai-choice-list"
+                onClick={(e) => e.stopPropagation()}
               >
-                {messageCount >= 3 ? '制限到達' : isProcessing ? '処理中' : '回答'}
-              </button>
-            </div>
+                <div className="ai-choice-prompt">どう答える？</div>
+                {currentStep.options.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    className="ai-choice-btn"
+                    onClick={() => selectChoice(opt.id)}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
           </div>
         </div>
       </div>
       <span
         className={`back-btn ${isActive ? 'visible' : ''}`}
-        id="backBtn"
         onClick={onClose}
+        role="button"
+        aria-label="閉じる"
       >
         &times;
       </span>
